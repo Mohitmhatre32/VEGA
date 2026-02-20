@@ -170,9 +170,7 @@ export function AnalyticsDashboard() {
         {/* Section header */}
         <div className="flex items-center gap-3 mb-8">
           <div className="w-2 h-px bg-accent-blue/60" />
-          <span className="terminal-text text-xs tracking-widest text-accent-blue/60 uppercase">
-            Screen 3 · Orbital Metrics
-          </span>
+      
           <div className="flex-1 h-px bg-gradient-to-r from-accent-blue/20 to-transparent" />
         </div>
 

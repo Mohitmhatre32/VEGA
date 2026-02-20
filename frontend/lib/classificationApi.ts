@@ -87,3 +87,58 @@ export async function predictBatch(files: File[]): Promise<BatchPredictionResult
 
     return res.json() as Promise<BatchPredictionResult>;
 }
+
+// ── Change Detection ───────────────────────────────────────────────────────────
+
+/** Per-class row returned inside the change-detection report */
+export interface AreaStat {
+    class: string;
+    year1_area_km2: number;
+    year2_area_km2: number;
+    /** e.g. "↑ 21.5%" or "↓ 8.3%" */
+    change_pct: string;
+    /** "increasing" | "decreasing" */
+    trend: string;
+}
+
+/**
+ * Matches the JSON shape returned by POST /classification/change-detection
+ * { message, report: { year1_prediction, year2_prediction, area_stats[] } }
+ */
+export interface ChangeDetectionResult {
+    message: string;
+    report: {
+        year1_prediction: string;
+        year2_prediction: string;
+        area_stats: AreaStat[];
+    };
+}
+
+/**
+ * Upload two images (Year 1 and Year 2) for temporal change detection.
+ * FastAPI expects form fields "file1" and "file2".
+ */
+export async function predictChangeDetection(
+    file1: File,
+    file2: File,
+): Promise<ChangeDetectionResult> {
+    const formData = new FormData();
+    formData.append('file1', file1);
+    formData.append('file2', file2);
+
+    const res = await fetch(`${API_BASE}/classification/change-detection`, {
+        method: 'POST',
+        body: formData,
+    });
+
+    if (!res.ok) {
+        let detail = `Server error ${res.status}`;
+        try {
+            const json = await res.json();
+            if (json?.detail) detail = json.detail;
+        } catch { /* ignore */ }
+        throw new Error(detail);
+    }
+
+    return res.json() as Promise<ChangeDetectionResult>;
+}
