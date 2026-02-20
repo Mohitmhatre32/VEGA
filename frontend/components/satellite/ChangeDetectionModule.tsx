@@ -1,13 +1,14 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Upload, FileImage, X, AlertTriangle,
-  Loader2, CheckCircle2, Calendar,
+  Loader2, CheckCircle2, Calendar, FileDown,
 } from 'lucide-react';
 import { predictChangeDetection, type ChangeDetectionResult } from '@/lib/classificationApi';
 import { ChangeDetectionResultCard } from './ChangeDetectionResultCard';
+import { generateChangeDetectionReport } from '@/lib/generateChangeDetectionReport';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 type UploadState = 'idle' | 'uploading' | 'processing' | 'done' | 'error';
@@ -126,9 +127,19 @@ export function ChangeDetectionModule() {
   const [uploadState, setUploadState] = useState<UploadState>('idle');
   const [result, setResult] = useState<ChangeDetectionResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [isExporting, setIsExporting] = useState(false);
 
   const isLoading = uploadState === 'uploading' || uploadState === 'processing';
   const canSubmit = !!file1 && !!file2 && !isLoading;
+
+  const handleExportReport = useCallback(async () => {
+    setIsExporting(true);
+    try {
+      await generateChangeDetectionReport(result, file1?.name, file2?.name);
+    } finally {
+      setIsExporting(false);
+    }
+  }, [result, file1, file2]);
 
   const handleClear = () => {
     setFile1(null);
@@ -174,9 +185,29 @@ export function ChangeDetectionModule() {
           <div className="flex-1 h-px bg-gradient-to-r from-accent-orange/20 to-transparent" />
         </div>
 
-        <h2 className="font-display text-2xl font-bold text-text-primary tracking-wider mb-2">
-          TERRAIN CHANGE DETECTION
-        </h2>
+        <div className="flex items-start justify-between gap-4 mb-2">
+          <h2 className="font-display text-2xl font-bold text-text-primary tracking-wider">
+            TERRAIN CHANGE DETECTION
+          </h2>
+
+          {/* Export Report button */}
+          <motion.button
+            whileHover={{ scale: 1.03 }}
+            whileTap={{ scale: 0.96 }}
+            onClick={handleExportReport}
+            disabled={isExporting || isLoading}
+            className="flex items-center gap-2 px-4 py-2 rounded border border-accent-orange/30 text-accent-orange hover:bg-accent-orange/10 hover:border-accent-orange/60 transition-all disabled:opacity-40 disabled:cursor-not-allowed flex-shrink-0"
+            style={{ background: 'rgba(14,22,40,0.8)', backdropFilter: 'blur(8px)' }}
+            title={!result ? 'Run detection first to export a report' : 'Download PDF change detection report'}
+          >
+            {isExporting
+              ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              : <FileDown className="w-3.5 h-3.5" />}
+            <span className="terminal-text text-[10px] tracking-widest uppercase">
+              {isExporting ? 'Generating...' : 'Export Report'}
+            </span>
+          </motion.button>
+        </div>
         <p className="terminal-text text-xs text-text-secondary/50 tracking-wider mb-8">
           Upload Year 1 and Year 2 satellite images — the AI calculates terrain shift, area change, and trend direction
         </p>

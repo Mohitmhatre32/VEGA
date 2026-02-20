@@ -312,6 +312,28 @@ export function AnalyticsDashboard() {
             {/* Terrain per-class bars */}
 
           </motion.div>
+
+          {/* ── Model Performance Images — full-width, no border ── */}
+          <motion.div
+            initial={{ opacity: 0, y: 24 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.7, delay: 0.1 }}
+            className="grid grid-cols-1 md:grid-cols-2 gap-6"
+          >
+            <img
+              src="/imgs/para1.jpeg"
+              alt="Model performance chart 1"
+              className="w-full h-auto object-contain rounded-sm"
+            />
+            <img
+              src="/imgs/para2.jpeg"
+              alt="Model performance chart 2"
+              className="w-full h-auto object-contain rounded-sm"
+            />
+          </motion.div>
+
+
         </div>
       </div>
     </section>
