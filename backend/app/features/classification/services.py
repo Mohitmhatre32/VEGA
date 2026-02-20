@@ -1,5 +1,4 @@
 import io
-import tempfile
 import numpy as np
 from PIL import Image
 from app.core.config import settings
@@ -191,36 +190,3 @@ class ClassificationService:
             {"model": "MobileNetV2", "accuracy": "88.7%", "precision": "0.86", "recall": "0.85", "f1": "0.85"},
             {"model": "VGG16", "accuracy": "86.1%", "precision": "0.84", "recall": "0.82", "f1": "0.83"},
         ]
-
-    # ==========================================
-    # Map / Grid Analysis
-    # ==========================================
-    @staticmethod
-    def analyze_map(image_bytes: bytes, filename: str, patch_size: int = 64) -> dict:
-        """
-        Runs the full ISRO patch-grid analysis on an uploaded image.
-        Mirrors what test_run.py does: calls get_image_analysis_data() and
-        returns {filename, image_width, image_height, patch_size, grid[]}.
-        """
-        import sys
-
-        # Make sure backend/core is importable regardless of CWD
-        current_dir = os.path.dirname(os.path.abspath(__file__))
-        backend_root = os.path.abspath(os.path.join(current_dir, "../../../"))
-        if backend_root not in sys.path:
-            sys.path.append(backend_root)
-
-        from core.ai_engine import get_image_analysis_data
-
-        # ai_engine expects a file path, so write bytes to a temp file
-        suffix = os.path.splitext(filename)[-1] or ".jpg"
-        with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
-            tmp.write(image_bytes)
-            tmp_path = tmp.name
-
-        try:
-            data = get_image_analysis_data(tmp_path, patch_size=patch_size)
-            data["filename"] = filename  # attach original upload name
-            return data
-        finally:
-            os.unlink(tmp_path)
