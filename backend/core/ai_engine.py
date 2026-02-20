@@ -74,17 +74,23 @@ def predict_patch(image_input):
 
     input_tensor = _preprocess(img).unsqueeze(0).to(_device)
 
+    # Predict
     with torch.no_grad():
         output = _model(input_tensor)
         probabilities = torch.nn.functional.softmax(output, dim=1)
-        confidence, predicted_idx = torch.max(probabilities, 0)
+        # Get top prediction (dim=1 for class dimension)
+        confidence, predicted_idx = torch.max(probabilities, 1)
 
-    # --- FIXED: Correct List Indexing ---
     predicted_label = _class_names[predicted_idx.item()]
+    
+    # Get all probabilities
+    probs_list = probabilities[0].tolist()
+    class_probs = {name: round(prob * 100, 2) for name, prob in zip(_class_names, probs_list)}
 
     return {
         "class": predicted_label,
-        "confidence": round(confidence.item() * 100, 2)
+        "confidence": round(confidence.item() * 100, 2),
+        "probabilities": class_probs
     }
 
 # def generate_heatmap(input_image_path, output_image_path, patch_size=32):

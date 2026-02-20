@@ -9,11 +9,8 @@ async def predict_single(file: UploadFile = File(...)):
     """Single image prediction endpoint"""
     contents = await file.read()
     
-    # 1. Preprocess
-    tensor = ClassificationService.preprocess_image(contents)
-    
-    # 2. Predict (Calls your teammate's model)
-    result = ClassificationService.call_teammate_model(tensor)
+    # 1. Preprocess & Predict (Service handles it now)
+    result = ClassificationService.call_teammate_model(contents)
     
     return {
         "filename": file.filename,
@@ -29,8 +26,8 @@ async def predict_batch(files: List[UploadFile] = File(...)):
     
     for file in files:
         contents = await file.read()
-        tensor = ClassificationService.preprocess_image(contents)
-        result = ClassificationService.call_teammate_model(tensor)
+        # Service handles bytes directly
+        result = ClassificationService.call_teammate_model(contents)
         predictions.append(result)
         
     # Aggregate stats
