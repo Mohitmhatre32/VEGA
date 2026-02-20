@@ -1,10 +1,3 @@
-# The PyTorch core (Windows GPU version)
---index-url https://download.pytorch.org/whl/cu121
-torch
-torchvision
-torchaudio
-
-# Data & Viz
 numpy<2.0.0
 pandas
 seaborn

@@ -31,9 +31,8 @@ htmlcov/
 .ipynb_checkpoints
 
 # Model checkpoints and saved models
-# you may also want to ignore entire directories for large models, e.g.:
-
-# temporary files and data
+datasets/
+scripts/
 
 # IDE specific files
 # Visual Studio Code
