@@ -58,3 +58,24 @@ async def change_detection(
         "message": "Change detection complete",
         "report": change_report
     }
+    
+@router.post("/augment-preview")
+async def augment_preview(file: UploadFile = File(...)):
+    """
+    Returns 3 augmented versions of the uploaded image (Rotated, Flipped, Brightness).
+    """
+    contents = await file.read()
+    augments = ClassificationService.generate_augmentations(contents)
+    return {
+        "message": "Augmentation preview generated",
+        "images": augments
+    }
+
+@router.get("/leaderboard")
+async def get_leaderboard():
+    """
+    Returns the Model Comparison Table data.
+    """
+    return {
+        "leaderboard": ClassificationService.get_model_leaderboard()
+    }
