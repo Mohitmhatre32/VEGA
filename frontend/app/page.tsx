@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, lazy, Suspense } from 'react';
 import { motion } from 'framer-motion';
 import { useRouter } from 'next/navigation';
+import { FeaturesSection } from '@/components/satellite/FeaturesSection';
 
 const EarthScene = lazy(() => import('@/components/satellite/EarthScene'));
 
@@ -172,43 +173,9 @@ export default function LandingPage() {
         {/* Divider */}
         <div className="max-w-xs mx-auto h-px" style={{ background: 'linear-gradient(90deg, transparent, rgba(0,245,255,0.25), transparent)' }} />
 
-        {/* Section: What it does */}
-        <section className="py-24 px-6">
-          <div className="max-w-5xl mx-auto">
-            <motion.div
-              initial={{ opacity: 0, y: 24 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.8 }}
-              className="grid grid-cols-1 md:grid-cols-3 gap-6"
-            >
-              {[
-                { label: 'TERRAIN CLASSIFICATION', desc: 'AI-driven multi-class terrain segmentation across all land cover types.', accent: '#00F5FF' },
-                { label: 'CHANGE DETECTION', desc: 'Year-over-year comparative analysis to detect environmental shifts.', accent: '#00FF88' },
-                { label: 'ORBITAL ANALYTICS', desc: 'Precision metrics and model evaluation dashboards for mission insight.', accent: '#FFB800' },
-              ].map(({ label, desc, accent }) => (
-                <div
-                  key={label}
-                  className="p-6 rounded"
-                  style={{
-                    background: 'rgba(14,22,40,0.6)',
-                    border: `1px solid ${accent}20`,
-                    backdropFilter: 'blur(12px)',
-                  }}
-                >
-                  <div
-                    className="text-[10px] tracking-[0.35em] uppercase mb-3"
-                    style={{ fontFamily: 'JetBrains Mono, monospace', color: accent }}
-                  >
-                    {label}
-                  </div>
-                  <p className="text-sm leading-relaxed" style={{ color: 'hsl(0 0% 60%)', fontFamily: 'Inter, sans-serif' }}>
-                    {desc}
-                  </p>
-                </div>
-              ))}
-            </motion.div>
-          </div>
+        {/* Features grid — full orbital section */}
+        <section className="py-8">
+          <FeaturesSection />
         </section>
 
         <div className="max-w-xs mx-auto h-px" style={{ background: 'linear-gradient(90deg, transparent, rgba(0,245,255,0.15), transparent)' }} />
