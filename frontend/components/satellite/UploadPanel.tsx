@@ -2,45 +2,93 @@
 
 import { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Upload, FileImage, CheckCircle2, Loader2, Zap, X } from 'lucide-react';
+import { Upload, FileImage, CheckCircle2, Loader2, Zap, X, AlertTriangle } from 'lucide-react';
+import { predictImage, type PredictionResult } from '@/lib/classificationApi';
+import { ClassificationResultCard } from './ClassificationResultCard';
+
+// ── Types ──────────────────────────────────────────────────────────────────────
+
+type StepIndex = 0 | 1 | 2 | 3;
 
 interface UploadedFile {
+  id: string;
   name: string;
   size: number;
-  step: number; // 0=uploading 1=processing 2=analyzing 3=done
+  /** 0=uploading 1=processing 2=analyzing 3=done */
+  step: StepIndex;
+  error?: string;
+  result?: PredictionResult;
 }
+
+// ── Constants ──────────────────────────────────────────────────────────────────
 
 const STEPS = [
   { label: 'UPLOADING', icon: Upload },
   { label: 'PROCESSING', icon: Loader2 },
   { label: 'ANALYZING', icon: Zap },
   { label: 'COMPLETE', icon: CheckCircle2 },
-];
+] as const;
+
+// ── Component ──────────────────────────────────────────────────────────────────
 
 export function UploadPanel() {
   const [isDragActive, setIsDragActive] = useState(false);
   const [uploads, setUploads] = useState<UploadedFile[]>([]);
+  /** The most recently completed prediction to display as result card */
+  const [latestResult, setLatestResult] = useState<PredictionResult | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // ── helpers ──
+
+  const setStep = (id: string, step: StepIndex) =>
+    setUploads((prev) =>
+      prev.map((u) => (u.id === id ? { ...u, step } : u))
+    );
+
+  const setError = (id: string, error: string) =>
+    setUploads((prev) =>
+      prev.map((u) => (u.id === id ? { ...u, error } : u))
+    );
+
+  const setResult = (id: string, result: PredictionResult) =>
+    setUploads((prev) =>
+      prev.map((u) => (u.id === id ? { ...u, result, step: 3 } : u))
+    );
+
+  // ── core upload + predict flow ──
+
+  const processFile = async (file: File) => {
+    const id = crypto.randomUUID();
+    const entry: UploadedFile = { id, name: file.name, size: file.size, step: 0 };
+    setUploads((prev) => [...prev, entry]);
+
+    try {
+      // Step 0 → 1 (upload sent, waiting for server)
+      await new Promise((r) => setTimeout(r, 400));
+      setStep(id, 1);
+
+      // Step 1 → 2 (server received, model running)
+      await new Promise((r) => setTimeout(r, 600));
+      setStep(id, 2);
+
+      // ── Real API call ──
+      const result = await predictImage(file);
+
+      // Step 2 → 3 (done)
+      setResult(id, result);
+      setLatestResult(result);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Unknown error';
+      setError(id, msg);
+    }
+  };
+
+  // ── drag handlers ──
 
   const handleDrag = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
     setIsDragActive(e.type === 'dragenter' || e.type === 'dragover');
-  };
-
-  const processFile = (file: File) => {
-    const entry: UploadedFile = { name: file.name, size: file.size, step: 0 };
-    setUploads((prev) => [...prev, entry]);
-
-    // Advance step every 900ms
-    let s = 0;
-    const t = setInterval(() => {
-      s++;
-      setUploads((prev) =>
-        prev.map((u) => (u.name === file.name && u.step < 3 ? { ...u, step: s } : u))
-      );
-      if (s >= 3) clearInterval(t);
-    }, 900);
   };
 
   const handleDrop = (e: React.DragEvent) => {
@@ -54,8 +102,20 @@ export function UploadPanel() {
     e.target.value = '';
   };
 
-  const removeUpload = (name: string) =>
-    setUploads((prev) => prev.filter((u) => u.name !== name));
+  const removeUpload = (id: string) => {
+    setUploads((prev) => {
+      const removed = prev.find((u) => u.id === id);
+      // If we're removing the file whose result is shown, clear the card
+      if (removed?.result) {
+        setLatestResult((cur) =>
+          cur?.filename === removed.result!.filename ? null : cur
+        );
+      }
+      return prev.filter((u) => u.id !== id);
+    });
+  };
+
+  // ── render ──
 
   return (
     <section className="relative py-16 px-4">
@@ -74,7 +134,7 @@ export function UploadPanel() {
         </div>
 
         <h2 className="font-display text-2xl font-bold text-text-primary tracking-wider mb-2">
-          UPLOAD & ANALYZE
+          UPLOAD &amp; ANALYZE
         </h2>
         <p className="terminal-text text-xs text-text-secondary/50 tracking-wider mb-8">
           Submit satellite imagery for real-time terrain classification pipeline
@@ -96,7 +156,6 @@ export function UploadPanel() {
             boxShadow: isDragActive ? '0 0 24px rgba(0,245,255,0.2), inset 0 0 24px rgba(0,245,255,0.04)' : 'none',
           }}
         >
-          {/* Geo-grid behind */}
           {isDragActive && <div className="absolute inset-0 geo-grid rounded opacity-50" />}
 
           <div className="relative z-10 flex flex-col items-center gap-5 text-center">
@@ -134,7 +193,7 @@ export function UploadPanel() {
           />
         </motion.div>
 
-        {/* Pipeline steps */}
+        {/* Pipeline step legend */}
         <div className="mt-6 grid grid-cols-2 md:grid-cols-4 gap-3">
           {STEPS.map(({ label, icon: Icon }, i) => (
             <div
@@ -165,15 +224,17 @@ export function UploadPanel() {
               <h3 className="terminal-text text-[10px] text-accent-cyan/50 tracking-widest uppercase mb-2">
                 Processing Queue
               </h3>
+
               {uploads.map((u) => (
                 <motion.div
-                  key={u.name}
+                  key={u.id}
                   initial={{ opacity: 0, x: -10 }}
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: 10 }}
-                  className="p-4 rounded border border-accent-cyan/15"
+                  className={`p-4 rounded border ${u.error ? 'border-red-500/30' : 'border-accent-cyan/15'}`}
                   style={{ background: 'rgba(14,22,40,0.7)' }}
                 >
+                  {/* File header */}
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-2">
                       <FileImage className="w-4 h-4 text-accent-cyan/60" />
@@ -182,55 +243,83 @@ export function UploadPanel() {
                       </span>
                     </div>
                     <div className="flex items-center gap-3">
-                      <span className="terminal-text text-[10px] text-accent-cyan tracking-widest">
-                        {STEPS[u.step]?.label}
-                      </span>
-                      <button onClick={() => removeUpload(u.name)} className="text-text-secondary/40 hover:text-accent-red transition-colors">
+                      {u.error ? (
+                        <span className="terminal-text text-[10px] text-red-400 tracking-widest flex items-center gap-1">
+                          <AlertTriangle className="w-3 h-3" /> ERROR
+                        </span>
+                      ) : (
+                        <span className="terminal-text text-[10px] text-accent-cyan tracking-widest">
+                          {STEPS[u.step]?.label}
+                        </span>
+                      )}
+                      <button
+                        onClick={() => removeUpload(u.id)}
+                        className="text-text-secondary/40 hover:text-red-400 transition-colors"
+                      >
                         <X className="w-3.5 h-3.5" />
                       </button>
                     </div>
                   </div>
 
+                  {/* Error message */}
+                  {u.error && (
+                    <p className="terminal-text text-[10px] text-red-400/80 tracking-wide mb-2 pl-6">
+                      {u.error}
+                    </p>
+                  )}
+
                   {/* Step indicators */}
-                  <div className="flex gap-2 mb-3">
-                    {STEPS.map((step, i) => {
-                      const StepIcon = step.icon;
-                      const done = u.step > i;
-                      const active = u.step === i;
-                      return (
-                        <div key={i} className="flex items-center gap-1">
-                          <StepIcon
-                            className={`w-3 h-3 ${done ? 'text-accent-green' : active ? 'text-accent-cyan animate-pulse' : 'text-text-secondary/20'}`}
-                          />
-                          {i < 3 && (
-                            <div className={`w-6 h-px ${done ? 'bg-accent-green/60' : 'bg-text-secondary/15'}`} />
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
+                  {!u.error && (
+                    <>
+                      <div className="flex gap-2 mb-3">
+                        {STEPS.map((step, i) => {
+                          const StepIcon = step.icon;
+                          const done = u.step > i;
+                          const active = u.step === i;
+                          return (
+                            <div key={i} className="flex items-center gap-1">
+                              <StepIcon
+                                className={`w-3 h-3 ${done ? 'text-accent-green' : active ? 'text-accent-cyan animate-pulse' : 'text-text-secondary/20'
+                                  }`}
+                              />
+                              {i < 3 && (
+                                <div className={`w-6 h-px ${done ? 'bg-accent-green/60' : 'bg-text-secondary/15'}`} />
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
 
-                  {/* Progress bar */}
-                  <div className="w-full h-1 bg-bg-tertiary/40 rounded overflow-hidden">
-                    <motion.div
-                      className="h-full bg-gradient-to-r from-accent-cyan to-accent-green"
-                      style={{ boxShadow: '0 0 4px rgba(0,245,255,0.5)' }}
-                      animate={{ width: `${(u.step / 3) * 100}%` }}
-                      transition={{ duration: 0.4, ease: 'easeOut' }}
-                    />
-                  </div>
+                      {/* Progress bar */}
+                      <div className="w-full h-1 bg-bg-tertiary/40 rounded overflow-hidden">
+                        <motion.div
+                          className="h-full bg-gradient-to-r from-accent-cyan to-accent-green"
+                          style={{ boxShadow: '0 0 4px rgba(0,245,255,0.5)' }}
+                          animate={{ width: `${(u.step / 3) * 100}%` }}
+                          transition={{ duration: 0.4, ease: 'easeOut' }}
+                        />
+                      </div>
 
-                  <div className="flex justify-between mt-1">
-                    <span className="terminal-text text-[10px] text-text-secondary/30">
-                      {(u.size / 1024 / 1024).toFixed(1)} MB
-                    </span>
-                    <span className="terminal-text text-[10px] text-accent-cyan/50">
-                      {Math.round((u.step / 3) * 100)}%
-                    </span>
-                  </div>
+                      <div className="flex justify-between mt-1">
+                        <span className="terminal-text text-[10px] text-text-secondary/30">
+                          {(u.size / 1024 / 1024).toFixed(1)} MB
+                        </span>
+                        <span className="terminal-text text-[10px] text-accent-cyan/50">
+                          {Math.round((u.step / 3) * 100)}%
+                        </span>
+                      </div>
+                    </>
+                  )}
                 </motion.div>
               ))}
             </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* ── Result Card ── */}
+        <AnimatePresence>
+          {latestResult && (
+            <ClassificationResultCard key={latestResult.filename} result={latestResult} />
           )}
         </AnimatePresence>
       </div>

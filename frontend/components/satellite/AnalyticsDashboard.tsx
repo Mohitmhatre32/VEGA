@@ -65,10 +65,11 @@ function RadialReliabilityChart({ target = 92.4 }: { target?: number }) {
           {/* Tick marks */}
           {Array.from({ length: 12 }).map((_, i) => {
             const angle = (i / 12) * 2 * Math.PI - Math.PI / 2;
-            const x1 = 100 + 92 * Math.cos(angle);
-            const y1 = 100 + 92 * Math.sin(angle);
-            const x2 = 100 + 86 * Math.cos(angle);
-            const y2 = 100 + 86 * Math.sin(angle);
+            const r = (n: number) => Math.round(n * 1e6) / 1e6;
+            const x1 = r(100 + 92 * Math.cos(angle));
+            const y1 = r(100 + 92 * Math.sin(angle));
+            const x2 = r(100 + 86 * Math.cos(angle));
+            const y2 = r(100 + 86 * Math.sin(angle));
             return <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} stroke="rgba(0,245,255,0.25)" strokeWidth="1" />;
           })}
           <defs>
