@@ -2,9 +2,10 @@
 
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ToggleLeft, ToggleRight } from 'lucide-react';
+import { ToggleLeft, ToggleRight, ImageOff } from 'lucide-react';
 import { classificationResults } from '@/lib/mockData';
 import { ConfidenceBar } from '@/components/shared/ConfidenceBar';
+import { useImageContext } from '@/lib/ImageContext';
 
 const OVERLAY_COLORS: Record<string, string> = {
   Forest: 'rgba(0,255,80,0.45)',
@@ -22,8 +23,23 @@ const LEGEND = [
   { label: 'Barren', color: '#8B5A2B' },
 ];
 
+const TERRAIN_TYPES = [
+  'Forest', 'Water', 'Urban', 'Agriculture', 'Barren',
+  'Forest', 'Forest', 'Agriculture', 'Water', 'Barren',
+  'Urban', 'Water', 'Forest', 'Agriculture', 'Forest',
+  'Agriculture', 'Barren', 'Urban', 'Forest', 'Water',
+];
+
+const AI_LABELS = [
+  { label: 'FOREST', x: '10%', y: '15%' },
+  { label: 'WATER', x: '58%', y: '10%' },
+  { label: 'URBAN', x: '5%', y: '65%' },
+  { label: 'AGRI', x: '65%', y: '70%' },
+];
+
 export function ClassificationVisualization() {
   const [showAI, setShowAI] = useState(false);
+  const { uploadedImageUrl } = useImageContext();
 
   return (
     <section className="relative py-16 px-4">
@@ -42,13 +58,40 @@ export function ClassificationVisualization() {
           <div className="flex-1 h-px bg-gradient-to-r from-accent-green/20 to-transparent" />
         </div>
 
-        {/* Toggle */}
+        {/* Toggle row */}
         <div className="flex items-center gap-4 mb-6">
           <h2 className="font-display text-2xl font-bold text-text-primary tracking-wider">
             TERRAIN INTELLIGENCE MAP
           </h2>
-          <div className="flex items-center gap-2 ml-auto p-2 rounded border border-accent-green/20"
-            style={{ background: 'rgba(14,22,40,0.8)', backdropFilter: 'blur(8px)' }}>
+
+          {/* Uploaded image badge */}
+          <AnimatePresence>
+            {uploadedImageUrl && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.9 }}
+                className="flex items-center gap-2 px-3 py-1.5 rounded border border-accent-cyan/30"
+                style={{ background: 'rgba(0,245,255,0.06)', backdropFilter: 'blur(8px)' }}
+              >
+                {/* Thumbnail */}
+                <img
+                  src={uploadedImageUrl}
+                  alt="uploaded preview"
+                  className="w-5 h-5 rounded-sm object-cover border border-accent-cyan/20"
+                />
+                <span className="terminal-text text-[10px] text-accent-cyan/70 tracking-widest uppercase">
+                  Image Loaded
+                </span>
+                <div className="w-1.5 h-1.5 rounded-full bg-accent-green animate-pulse" />
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          <div
+            className="flex items-center gap-2 ml-auto p-2 rounded border border-accent-green/20"
+            style={{ background: 'rgba(14,22,40,0.8)', backdropFilter: 'blur(8px)' }}
+          >
             <span className="terminal-text text-xs text-text-secondary/60 tracking-widest">RAW IMAGE</span>
             <button onClick={() => setShowAI(!showAI)} className="text-accent-cyan relative">
               {showAI
@@ -63,40 +106,81 @@ export function ClassificationVisualization() {
 
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-6">
 
-          {/* Main viewer */}
+          {/* ── Main viewer ── */}
           <div
             className="monitor-frame relative overflow-hidden rounded"
             style={{ border: '1px solid rgba(0,245,255,0.2)', background: '#0B0F1A', aspectRatio: '16/9' }}
           >
-            {/* Extra corners */}
+            {/* Corner brackets */}
             <div className="absolute top-0 right-0 w-5 h-5 border-t-2 border-r-2 border-accent-cyan/60 z-20" />
             <div className="absolute bottom-0 left-0 w-5 h-5 border-b-2 border-l-2 border-accent-cyan/60 z-20" />
 
-            {/* Placeholder terrain image */}
             <div className="w-full h-full relative">
-              {/* Simulated terrain blocks */}
-              <div className="absolute inset-0 grid grid-cols-5 grid-rows-4">
-                {['Forest', 'Water', 'Urban', 'Agriculture', 'Barren',
-                  'Forest', 'Forest', 'Agriculture', 'Water', 'Barren',
-                  'Urban', 'Water', 'Forest', 'Agriculture', 'Forest',
-                  'Agriculture', 'Barren', 'Urban', 'Forest', 'Water',
-                ].map((type, i) => (
-                  <div
-                    key={i}
-                    style={{
-                      background: showAI
-                        ? OVERLAY_COLORS[type] ?? 'rgba(100,100,100,0.3)'
-                        : 'rgba(20,28,50,0.8)',
-                    }}
-                    className="transition-all duration-500 border border-accent-cyan/5"
+
+              {/* ── Uploaded image layer (base) ── */}
+              <AnimatePresence>
+                {uploadedImageUrl ? (
+                  <motion.img
+                    key="uploaded-img"
+                    src={uploadedImageUrl}
+                    alt="satellite imagery"
+                    className="absolute inset-0 w-full h-full object-cover"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.5 }}
+                    style={{ filter: showAI ? 'brightness(0.55) saturate(0.6)' : 'brightness(0.9)' }}
                   />
-                ))}
-              </div>
+                ) : (
+                  /* Default: terrain block placeholder */
+                  <motion.div
+                    key="placeholder"
+                    className="absolute inset-0 grid grid-cols-5 grid-rows-4"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                  >
+                    {TERRAIN_TYPES.map((type, i) => (
+                      <div
+                        key={i}
+                        style={{
+                          background: showAI
+                            ? OVERLAY_COLORS[type] ?? 'rgba(100,100,100,0.3)'
+                            : 'rgba(20,28,50,0.8)',
+                        }}
+                        className="transition-all duration-500 border border-accent-cyan/5"
+                      />
+                    ))}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              {/* ── AI colour overlay (on top of image) ── */}
+              <AnimatePresence>
+                {showAI && uploadedImageUrl && (
+                  <motion.div
+                    key="ai-overlay"
+                    className="absolute inset-0 grid grid-cols-5 grid-rows-4 z-10"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.5 }}
+                  >
+                    {TERRAIN_TYPES.map((type, i) => (
+                      <div
+                        key={i}
+                        className="transition-colors duration-500"
+                        style={{ background: OVERLAY_COLORS[type] ?? 'rgba(100,100,100,0.3)' }}
+                      />
+                    ))}
+                  </motion.div>
+                )}
+              </AnimatePresence>
 
               {/* Geo grid */}
-              <div className="absolute inset-0 geo-grid opacity-60 z-10" />
+              <div className="absolute inset-0 geo-grid opacity-60 z-[15]" />
 
-              {/* AI label overlay */}
+              {/* ── AI label overlay ── */}
               <AnimatePresence>
                 {showAI && (
                   <motion.div
@@ -107,12 +191,7 @@ export function ClassificationVisualization() {
                     transition={{ duration: 0.4 }}
                     className="absolute inset-0 z-20 pointer-events-none"
                   >
-                    {[
-                      { label: 'FOREST', x: '10%', y: '15%' },
-                      { label: 'WATER', x: '58%', y: '10%' },
-                      { label: 'URBAN', x: '5%', y: '65%' },
-                      { label: 'AGRI', x: '65%', y: '70%' },
-                    ].map(({ label, x, y }) => (
+                    {AI_LABELS.map(({ label, x, y }) => (
                       <div
                         key={label}
                         className="absolute terminal-text text-[9px] text-white/80 tracking-widest bg-black/40 border border-white/10 px-1.5 py-0.5 rounded"
@@ -125,16 +204,36 @@ export function ClassificationVisualization() {
                 )}
               </AnimatePresence>
 
+              {/* ── Empty state ── */}
+              <AnimatePresence>
+                {!uploadedImageUrl && !showAI && (
+                  <motion.div
+                    key="empty-hint"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-2 pointer-events-none"
+                  >
+                    <ImageOff className="w-8 h-8 text-accent-cyan/15" />
+                    <span className="terminal-text text-[10px] text-accent-cyan/20 tracking-widest uppercase">
+                      Upload an image to populate this viewer
+                    </span>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
               {/* Mode label */}
               <div className="absolute bottom-3 right-3 z-30">
                 <div className="terminal-text text-[10px] tracking-widest bg-black/60 border border-accent-cyan/20 px-2 py-1 rounded">
-                  {showAI ? 'AI SEGMENTATION ACTIVE' : 'RAW SENSOR DATA'}
+                  {uploadedImageUrl
+                    ? showAI ? 'AI SEGMENTATION ACTIVE' : 'RAW UPLOAD · SENSOR DATA'
+                    : showAI ? 'AI SEGMENTATION ACTIVE' : 'RAW SENSOR DATA'}
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Right panel */}
+          {/* ── Right panel ── */}
           <div className="flex flex-col gap-4">
             {/* Color legend */}
             <div

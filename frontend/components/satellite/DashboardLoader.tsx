@@ -6,8 +6,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 /* ─── Glitch text lines ─────────────────────────────────────────────────── */
 const LINES = [
     { text: 'Initializing Orbital AI...', delay: 0.2, color: '#00F5FF' },
-    { text: 'Connecting to Satellite Node...', delay: 1.4, color: '#00FF88' },
-    { text: 'Terrain Recognition Engine Activated.', delay: 2.6, color: '#FFB800' },
+    { text: 'Connecting to Satellite Node...', delay: 0.5, color: '#00FF88' },
+    { text: 'Terrain Recognition Engine Activated.', delay: 1.0, color: '#FFB800' },
 ];
 
 /* Random hex char for glitch effect */
