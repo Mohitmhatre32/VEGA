@@ -1,112 +1,186 @@
 'use client';
 
-import { motion } from 'framer-motion';
-import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts';
+import { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { ToggleLeft, ToggleRight } from 'lucide-react';
 import { classificationResults } from '@/lib/mockData';
 import { ConfidenceBar } from '@/components/shared/ConfidenceBar';
-import { containerVariants, itemVariants } from '@/lib/animations';
+
+const OVERLAY_COLORS: Record<string, string> = {
+  Forest: 'rgba(0,255,80,0.45)',
+  Water: 'rgba(0,100,255,0.45)',
+  Urban: 'rgba(255,46,99,0.45)',
+  Agriculture: 'rgba(255,184,0,0.45)',
+  Barren: 'rgba(139,90,43,0.45)',
+};
+
+const LEGEND = [
+  { label: 'Forest', color: '#00FF50' },
+  { label: 'Water', color: '#0064FF' },
+  { label: 'Urban', color: '#FF2E63' },
+  { label: 'Agriculture', color: '#FFB800' },
+  { label: 'Barren', color: '#8B5A2B' },
+];
 
 export function ClassificationVisualization() {
-  const chartData = classificationResults.map((r) => ({
-    name: r.terrainType,
-    value: r.area,
-    color: r.color,
-  }));
+  const [showAI, setShowAI] = useState(false);
 
   return (
-    <section className="py-20 px-4">
-      <motion.div
-        variants={containerVariants}
-        initial="hidden"
-        whileInView="visible"
-        viewport={{ once: true }}
-        className="max-w-6xl mx-auto"
-      >
-        <motion.h2 variants={itemVariants} className="text-4xl font-bold mb-4 text-text-primary">
-          Classification Results
-        </motion.h2>
-        <motion.p variants={itemVariants} className="text-text-secondary mb-12">
-          Real-time terrain breakdown with confidence scores
-        </motion.p>
+    <section className="relative py-16 px-4">
+      {/* Ambient */}
+      <div className="absolute inset-0 pointer-events-none">
+        <div className="absolute top-0 left-1/3 w-64 h-64 bg-accent-green/4 rounded-full blur-[80px]" />
+      </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* Chart */}
-          <motion.div
-            variants={itemVariants}
-            className="p-8 rounded-2xl bg-bg-secondary/50 border border-accent-cyan/20 backdrop-blur-sm"
-          >
-            <ResponsiveContainer width="100%" height={300}>
-              <PieChart>
-                <Pie
-                  data={chartData}
-                  cx="50%"
-                  cy="50%"
-                  labelLine={false}
-                  label={({ name, value }) => `${name}: ${value.toLocaleString()} km²`}
-                  outerRadius={80}
-                  fill="#8884d8"
-                  dataKey="value"
-                  style={{ outline: 'none' }}
-                >
-                  {chartData.map((entry, index) => (
-                    <Cell
-                      key={`cell-${index}`}
-                      fill={entry.color}
-                      stroke="rgba(11, 15, 26, 0.5)"
-                      strokeWidth={2}
-                    />
-                  ))}
-                </Pie>
-                <Tooltip
-                  formatter={(value) => `${Number(value).toLocaleString()} km²`}
-                  contentStyle={{
-                    backgroundColor: '#0E1628', // bg-secondary
-                    borderColor: 'rgba(0, 245, 255, 0.2)', // accent-cyan/20
-                    color: '#E6F1FF', // text-primary
-                    borderRadius: '12px',
-                    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)'
-                  }}
-                  itemStyle={{ color: '#E6F1FF' }}
-                />
-                <Legend
-                  wrapperStyle={{ paddingTop: '20px' }}
-                  formatter={(value) => <span style={{ color: '#94A3B8' }}>{value}</span>}
-                />
-              </PieChart>
-            </ResponsiveContainer>
-          </motion.div>
-
-          {/* Confidence Scores */}
-          <motion.div variants={itemVariants} className="space-y-6">
-            {classificationResults.map((result, i) => (
-              <motion.div
-                key={i}
-                variants={itemVariants}
-                className="p-4 rounded-lg bg-bg-secondary/30 border border-accent-cyan/10 hover:border-accent-cyan/50 transition-all hover:bg-bg-secondary/50 group"
-              >
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-3">
-                    <div
-                      className="w-4 h-4 rounded-full"
-                      style={{
-                        backgroundColor: result.color,
-                        boxShadow: `0 0 8px ${result.color}80`,
-                      }}
-                    />
-                    <span className="font-semibold text-text-primary group-hover:text-accent-cyan transition-colors">{result.terrainType}</span>
-                  </div>
-                  <span className="text-sm text-text-secondary">{result.area.toLocaleString()} km²</span>
-                </div>
-                <ConfidenceBar
-                  value={result.confidence}
-                  color={result.color}
-                  label="Confidence Score"
-                />
-              </motion.div>
-            ))}
-          </motion.div>
+      <div className="relative z-10 max-w-7xl mx-auto">
+        {/* Section header */}
+        <div className="flex items-center gap-3 mb-8">
+          <div className="w-2 h-px bg-accent-green/60" />
+          <span className="terminal-text text-xs tracking-widest text-accent-green/60 uppercase">
+            Screen 2 · Classification Overlay
+          </span>
+          <div className="flex-1 h-px bg-gradient-to-r from-accent-green/20 to-transparent" />
         </div>
-      </motion.div>
+
+        {/* Toggle */}
+        <div className="flex items-center gap-4 mb-6">
+          <h2 className="font-display text-2xl font-bold text-text-primary tracking-wider">
+            TERRAIN INTELLIGENCE MAP
+          </h2>
+          <div className="flex items-center gap-2 ml-auto p-2 rounded border border-accent-green/20"
+            style={{ background: 'rgba(14,22,40,0.8)', backdropFilter: 'blur(8px)' }}>
+            <span className="terminal-text text-xs text-text-secondary/60 tracking-widest">RAW IMAGE</span>
+            <button onClick={() => setShowAI(!showAI)} className="text-accent-cyan relative">
+              {showAI
+                ? <ToggleRight className="w-8 h-8 text-accent-green" />
+                : <ToggleLeft className="w-8 h-8 text-text-secondary/40" />}
+            </button>
+            <span className={`terminal-text text-xs tracking-widest ${showAI ? 'text-accent-green' : 'text-text-secondary/40'}`}>
+              AI TERRAIN MAP
+            </span>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-6">
+
+          {/* Main viewer */}
+          <div
+            className="monitor-frame relative overflow-hidden rounded"
+            style={{ border: '1px solid rgba(0,245,255,0.2)', background: '#0B0F1A', aspectRatio: '16/9' }}
+          >
+            {/* Extra corners */}
+            <div className="absolute top-0 right-0 w-5 h-5 border-t-2 border-r-2 border-accent-cyan/60 z-20" />
+            <div className="absolute bottom-0 left-0 w-5 h-5 border-b-2 border-l-2 border-accent-cyan/60 z-20" />
+
+            {/* Placeholder terrain image */}
+            <div className="w-full h-full relative">
+              {/* Simulated terrain blocks */}
+              <div className="absolute inset-0 grid grid-cols-5 grid-rows-4">
+                {['Forest', 'Water', 'Urban', 'Agriculture', 'Barren',
+                  'Forest', 'Forest', 'Agriculture', 'Water', 'Barren',
+                  'Urban', 'Water', 'Forest', 'Agriculture', 'Forest',
+                  'Agriculture', 'Barren', 'Urban', 'Forest', 'Water',
+                ].map((type, i) => (
+                  <div
+                    key={i}
+                    style={{
+                      background: showAI
+                        ? OVERLAY_COLORS[type] ?? 'rgba(100,100,100,0.3)'
+                        : 'rgba(20,28,50,0.8)',
+                    }}
+                    className="transition-all duration-500 border border-accent-cyan/5"
+                  />
+                ))}
+              </div>
+
+              {/* Geo grid */}
+              <div className="absolute inset-0 geo-grid opacity-60 z-10" />
+
+              {/* AI label overlay */}
+              <AnimatePresence>
+                {showAI && (
+                  <motion.div
+                    key="ai-labels"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.4 }}
+                    className="absolute inset-0 z-20 pointer-events-none"
+                  >
+                    {[
+                      { label: 'FOREST', x: '10%', y: '15%' },
+                      { label: 'WATER', x: '58%', y: '10%' },
+                      { label: 'URBAN', x: '5%', y: '65%' },
+                      { label: 'AGRI', x: '65%', y: '70%' },
+                    ].map(({ label, x, y }) => (
+                      <div
+                        key={label}
+                        className="absolute terminal-text text-[9px] text-white/80 tracking-widest bg-black/40 border border-white/10 px-1.5 py-0.5 rounded"
+                        style={{ left: x, top: y }}
+                      >
+                        {label}
+                      </div>
+                    ))}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              {/* Mode label */}
+              <div className="absolute bottom-3 right-3 z-30">
+                <div className="terminal-text text-[10px] tracking-widest bg-black/60 border border-accent-cyan/20 px-2 py-1 rounded">
+                  {showAI ? 'AI SEGMENTATION ACTIVE' : 'RAW SENSOR DATA'}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Right panel */}
+          <div className="flex flex-col gap-4">
+            {/* Color legend */}
+            <div
+              className="p-4 rounded border border-accent-cyan/10"
+              style={{ background: 'rgba(14,22,40,0.8)', backdropFilter: 'blur(8px)' }}
+            >
+              <h3 className="terminal-text text-[10px] tracking-widest text-accent-cyan/50 uppercase mb-3">
+                Classification Legend
+              </h3>
+              <div className="space-y-2">
+                {LEGEND.map(({ label, color }) => (
+                  <div key={label} className="flex items-center gap-3">
+                    <motion.div
+                      animate={{ opacity: showAI ? 1 : 0.3 }}
+                      className="w-3 h-3 rounded-sm flex-shrink-0"
+                      style={{ background: color, boxShadow: showAI ? `0 0 6px ${color}80` : 'none' }}
+                    />
+                    <span className="terminal-text text-xs text-text-secondary tracking-wider">{label}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Confidence scores */}
+            <div
+              className="p-4 rounded border border-accent-cyan/10 flex-1"
+              style={{ background: 'rgba(14,22,40,0.6)' }}
+            >
+              <h3 className="terminal-text text-[10px] tracking-widest text-accent-cyan/50 uppercase mb-3">
+                Confidence Scores
+              </h3>
+              <div className="space-y-4">
+                {classificationResults.map((result, i) => (
+                  <div key={i}>
+                    <div className="flex justify-between mb-1">
+                      <span className="terminal-text text-xs text-text-secondary">{result.terrainType}</span>
+                      <span className="terminal-text text-xs text-accent-cyan">{result.area.toLocaleString()} km²</span>
+                    </div>
+                    <ConfidenceBar value={result.confidence} color={result.color} label="" />
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </section>
   );
 }
