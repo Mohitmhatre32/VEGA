@@ -3,7 +3,7 @@
 
 <head>
     <meta charset="UTF-8">
-    <title>VEGA | Satellite Analytics Console</title>
+    <title>VEGA | ISRO Console</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         body {
@@ -18,65 +18,195 @@
         .isro-border {
             border-color: #facc15;
         }
+
+        .tab-active {
+            border-bottom: 2px solid #facc15;
+            color: #facc15;
+        }
+
+        .tab-inactive {
+            color: #6b7280;
+        }
     </style>
 </head>
 
 <body class="p-8">
-    <div class="max-w-4xl mx-auto border-l-4 isro-border pl-6">
-        <header class="mb-10">
-            <h1 class="text-4xl font-bold text-yellow-400">VEGA CONSOLE</h1>
-            <p class="text-gray-400">AI-Based Satellite Image Terrain Classification</p>
+    <div class="max-w-5xl mx-auto border-l-4 isro-border pl-6">
+        <header class="mb-8 flex justify-between items-center">
+            <div>
+                <h1 class="text-4xl font-bold text-yellow-400">VEGA CONSOLE</h1>
+                <p class="text-gray-400">AI-Based Satellite Image Terrain Classification</p>
+            </div>
+            <div class="space-x-4 text-sm font-mono">
+                <button onclick="switchTab('predict')" id="tab-predict" class="tab-active pb-1">PREDICTION</button>
+                <button onclick="switchTab('change')" id="tab-change" class="tab-inactive pb-1">CHANGE
+                    DETECTION</button>
+            </div>
         </header>
 
-        <section class="bg-gray-900 p-6 rounded-lg border border-gray-800">
-            <h2 class="text-xl mb-4 text-purple-400 font-mono">>_ Upload Satellite Patch</h2>
-            <input type="file" id="imageInput"
-                class="block w-full text-sm text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-purple-600 file:text-white hover:file:bg-purple-700 cursor-pointer" />
-            <button onclick="uploadImage()"
-                class="mt-4 px-6 py-2 isro-purple text-white rounded font-bold hover:bg-purple-800 transition">ANALYZE
-                TERRAIN</button>
-        </section>
+        <!-- PREDICTION SECTION -->
+        <div id="view-predict">
+            <section class="bg-gray-900 p-6 rounded-lg border border-gray-800">
+                <h2 class="text-xl mb-4 text-purple-400 font-mono">>_ Upload Satellite Patch(es)</h2>
+                <input type="file" id="imageInput" multiple
+                    class="block w-full text-sm text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-purple-600 file:text-white hover:file:bg-purple-700 cursor-pointer" />
+                <button onclick="processUpload()"
+                    class="mt-4 px-6 py-2 isro-purple text-white rounded font-bold hover:bg-purple-800 transition">ANALYZE
+                    TERRAIN(S)</button>
+            </section>
 
-        <section id="resultSection" class="mt-8 hidden">
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div class="bg-black p-4 rounded border border-gray-700">
-                    <h3 class="text-yellow-500 font-bold mb-2 uppercase">Classification Result</h3>
-                    <div id="mainLabel" class="text-3xl font-bold">---</div>
-                    <div id="confidence" class="text-purple-400 mt-1 italic">---</div>
+            <section id="singleResult" class="mt-8 hidden">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="bg-black p-4 rounded border border-gray-700">
+                        <h3 class="text-yellow-500 font-bold mb-2 uppercase">Classification Result</h3>
+                        <div id="mainLabel" class="text-3xl font-bold">---</div>
+                        <div id="confidence" class="text-purple-400 mt-1 italic">---</div>
+                    </div>
+                    <div class="bg-black p-4 rounded border border-gray-700 font-mono text-sm">
+                        <h3 class="text-gray-500 mb-2 uppercase">Probability Distribution</h3>
+                        <div id="distribution" class="space-y-3"></div>
+                    </div>
                 </div>
-                <div class="bg-black p-4 rounded border border-gray-700 font-mono text-sm">
-                    <h3 class="text-gray-500 mb-2 uppercase">Probability Distribution</h3>
-                    <div id="distribution"></div>
+            </section>
+
+            <section id="batchResult" class="mt-8 hidden">
+                <div class="bg-black p-6 rounded border border-gray-700">
+                    <h3 class="text-yellow-500 font-bold mb-4 uppercase">Batch Processing Summary</h3>
+                    <p class="text-2xl font-bold text-white mb-4" id="batchTotal">0 Images Processed</p>
+                    <div id="batchStats" class="grid grid-cols-2 md:grid-cols-3 gap-4 font-mono text-lg"></div>
                 </div>
-            </div>
-        </section>
+            </section>
+        </div>
+
+        <!-- CHANGE DETECTION SECTION -->
+        <div id="view-change" class="hidden">
+            <section class="bg-gray-900 p-6 rounded-lg border border-gray-800">
+                <h2 class="text-xl mb-4 text-purple-400 font-mono">>_ Temporal Analysis (Year 1 vs Year 2)</h2>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-gray-500 text-xs mb-1">YEAR 1 IMAGE</label>
+                        <input type="file" id="file1"
+                            class="block w-full text-xs text-gray-400 file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:bg-gray-700 file:text-white" />
+                    </div>
+                    <div>
+                        <label class="block text-gray-500 text-xs mb-1">YEAR 2 IMAGE</label>
+                        <input type="file" id="file2"
+                            class="block w-full text-xs text-gray-400 file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:bg-gray-700 file:text-white" />
+                    </div>
+                </div>
+                <button onclick="processChangeDetection()"
+                    class="mt-4 px-6 py-2 bg-yellow-600 text-white rounded font-bold hover:bg-yellow-700 transition">COMPARE
+                    EPOCHS</button>
+            </section>
+
+            <section id="changeResult" class="mt-8 hidden">
+                <div class="bg-black p-6 rounded border border-gray-700">
+                    <h3 class="text-yellow-500 font-bold mb-4 uppercase">Environmental Impact Assessment</h3>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse font-mono text-sm">
+                            <thead>
+                                <tr class="border-b border-gray-700 text-gray-400">
+                                    <th class="p-2">Terrain Class</th>
+                                    <th class="p-2">Year 1 Area (km²)</th>
+                                    <th class="p-2">Year 2 Area (km²)</th>
+                                    <th class="p-2">Change</th>
+                                </tr>
+                            </thead>
+                            <tbody id="changeTableBody">
+                                <!-- Populated via JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+        </div>
     </div>
 
     <script>
-        async function uploadImage() {
+        function switchTab(tab) {
+            document.getElementById('view-predict').classList.add('hidden');
+            document.getElementById('view-change').classList.add('hidden');
+            document.getElementById('tab-predict').className = "tab-inactive pb-1 hover:text-white";
+            document.getElementById('tab-change').className = "tab-inactive pb-1 hover:text-white";
+
+            if (tab === 'predict') {
+                document.getElementById('view-predict').classList.remove('hidden');
+                document.getElementById('tab-predict').className = "tab-active pb-1";
+            } else {
+                document.getElementById('view-change').classList.remove('hidden');
+                document.getElementById('tab-change').className = "tab-active pb-1";
+            }
+        }
+
+        async function processUpload() {
             const fileInput = document.getElementById('imageInput');
-            if (!fileInput.files[0]) return alert("Please select an image");
+            const files = fileInput.files;
+            if (files.length === 0) return alert("Select images first");
 
             const formData = new FormData();
-            formData.append('file', fileInput.files[0]);
+            document.getElementById('singleResult').classList.add('hidden');
+            document.getElementById('batchResult').classList.add('hidden');
 
-            const response = await fetch('/classification/predict', {
-                method: 'POST',
-                body: formData
-            });
+            if (files.length === 1) {
+                formData.append('file', files[0]);
+                const response = await fetch('/classification/predict', { method: 'POST', body: formData });
+                const data = await response.json();
 
-            const data = await response.json();
+                document.getElementById('singleResult').classList.remove('hidden');
+                document.getElementById('mainLabel').innerText = data.prediction;
+                document.getElementById('confidence').innerText = "Confidence: " + data.confidence;
 
-            document.getElementById('resultSection').classList.remove('hidden');
-            document.getElementById('mainLabel').innerText = data.prediction;
-            document.getElementById('confidence').innerText = "Confidence: " + data.confidence;
+                let distHtml = "";
+                for (const [cls, val] of Object.entries(data.breakdown)) {
+                    distHtml += `<div><div class="flex justify-between text-xs mb-1"><span class="text-gray-300">${cls}</span><span class="text-yellow-400">${val}%</span></div><div class="w-full bg-gray-900 h-2 rounded overflow-hidden"><div class="bg-purple-500 h-full" style="width: ${val}%"></div></div></div>`;
+                }
+                document.getElementById('distribution').innerHTML = distHtml;
 
-            let distHtml = "";
-            for (const [cls, val] of Object.entries(data.breakdown)) {
-                distHtml += `<div class="mb-1">${cls}: ${val}%</div>
-                             <div class="w-full bg-gray-800 h-1 mb-2"><div class="bg-purple-500 h-1" style="width: ${val}%"></div></div>`;
+            } else {
+                for (let i = 0; i < files.length; i++) formData.append('files', files[i]);
+                const response = await fetch('/classification/predict-batch', { method: 'POST', body: formData });
+                const data = await response.json();
+
+                document.getElementById('batchResult').classList.remove('hidden');
+                document.getElementById('batchTotal').innerText = `${data.stats.total_processed} Images Processed`;
+
+                let statsHtml = "";
+                for (const [cls, count] of Object.entries(data.stats.distribution)) {
+                    statsHtml += `<div class="bg-gray-900 p-3 rounded border border-gray-800 text-center"><span class="text-gray-400 text-xs uppercase">${cls}</span><span class="text-purple-400 block font-bold text-2xl">${count}</span></div>`;
+                }
+                document.getElementById('batchStats').innerHTML = statsHtml;
             }
-            document.getElementById('distribution').innerHTML = distHtml;
+        }
+
+        async function processChangeDetection() {
+            const f1 = document.getElementById('file1').files[0];
+            const f2 = document.getElementById('file2').files[0];
+            if (!f1 || !f2) return alert("Select both Year 1 and Year 2 images");
+
+            const formData = new FormData();
+            formData.append('file1', f1);
+            formData.append('file2', f2);
+
+            try {
+                const response = await fetch('/classification/change-detection', { method: 'POST', body: formData });
+                const data = await response.json();
+
+                document.getElementById('changeResult').classList.remove('hidden');
+                let rows = "";
+                data.report.area_stats.forEach(stat => {
+                    const color = stat.trend === 'increasing' ? 'text-red-400' : 'text-green-400';
+                    rows += `<tr class="border-b border-gray-800 hover:bg-gray-900">
+                        <td class="p-2">${stat.class}</td>
+                        <td class="p-2">${stat.year1_area_km2}</td>
+                        <td class="p-2">${stat.year2_area_km2}</td>
+                        <td class="p-2 font-bold ${color}">${stat.change_pct}</td>
+                    </tr>`;
+                });
+                document.getElementById('changeTableBody').innerHTML = rows;
+            } catch (e) {
+                console.error(e);
+                alert("Error in change detection");
+            }
         }
     </script>
 </body>
