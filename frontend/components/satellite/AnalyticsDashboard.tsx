@@ -300,35 +300,7 @@ export function AnalyticsDashboard() {
             </div>
 
             {/* Terrain per-class bars */}
-            <div className="mt-6 space-y-3">
-              <h3 className="terminal-text text-[10px] tracking-widest text-accent-cyan/40 uppercase">
-                Per-Class Accuracy
-              </h3>
-              {[
-                { label: 'Forest', acc: 94, color: '#00FF50' },
-                { label: 'Water', acc: 91, color: '#0099FF' },
-                { label: 'Urban', acc: 88, color: '#FF2E63' },
-                { label: 'Agriculture', acc: 93, color: '#FFB800' },
-                { label: 'Barren', acc: 93, color: '#8B6914' },
-              ].map(({ label, acc, color }) => (
-                <div key={label}>
-                  <div className="flex justify-between mb-1">
-                    <span className="terminal-text text-xs text-text-secondary/60">{label}</span>
-                    <span className="terminal-text text-xs" style={{ color }}>{acc}%</span>
-                  </div>
-                  <div className="w-full h-1 bg-bg-tertiary/50 rounded overflow-hidden">
-                    <motion.div
-                      initial={{ width: 0 }}
-                      whileInView={{ width: `${acc}%` }}
-                      viewport={{ once: true }}
-                      transition={{ duration: 1, ease: 'easeOut', delay: 0.2 }}
-                      className="h-full rounded"
-                      style={{ background: color, boxShadow: `0 0 4px ${color}80` }}
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
+           
           </motion.div>
         </div>
       </div>
