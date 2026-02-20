@@ -50,11 +50,11 @@ export function HeroSection() {
           transition={{ delay: 0.3 }}
           className="flex flex-col sm:flex-row justify-center gap-4"
         >
-          <button className="px-8 py-4 rounded-lg bg-gradient-to-r from-accent-cyan to-accent-blue text-white font-semibold hover:shadow-lg hover:shadow-accent-cyan/50 transition-all flex items-center justify-center gap-2 group">
+          <button className="px-8 py-4 rounded-lg bg-gradient-to-r from-accent-cyan to-accent-blue text-text-primary font-bold hover:shadow-lg hover:shadow-accent-cyan/50 transition-all flex items-center justify-center gap-2 group">
             Get Started
             <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
           </button>
-          <button className="px-8 py-4 rounded-lg border border-text-secondary/30 text-text-primary font-semibold hover:bg-white/5 transition-colors">
+          <button className="px-8 py-4 rounded-lg border border-text-secondary/30 text-text-primary font-semibold hover:bg-text-primary/5 transition-colors">
             View Demo
           </button>
         </motion.div>

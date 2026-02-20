@@ -36,8 +36,8 @@ export function Navbar() {
       animate={{ y: 0 }}
       transition={{ duration: 0.5, type: "spring", stiffness: 100 }}
       className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${scrolled
-          ? 'glass-strong border-b border-accent-cyan/20 py-3'
-          : 'bg-transparent py-5'
+        ? 'glass-strong border-b border-accent-cyan/20 py-3'
+        : 'bg-transparent py-5'
         }`}
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -128,7 +128,7 @@ export function Navbar() {
                   handleNavClick(e);
                   setIsOpen(false);
                 }}
-                className="flex items-center justify-between p-4 rounded-xl hover:bg-white/5 text-text-secondary hover:text-white transition-all group border border-transparent hover:border-white/5"
+                className="flex items-center justify-between p-4 rounded-xl hover:bg-text-primary/5 text-text-secondary hover:text-text-primary transition-all group border border-transparent hover:border-text-primary/5"
               >
                 <span className="font-medium text-lg">{item.label}</span>
                 <ChevronRight className="w-5 h-5 opacity-0 group-hover:opacity-100 -translate-x-2 group-hover:translate-x-0 transition-all text-accent-cyan" />

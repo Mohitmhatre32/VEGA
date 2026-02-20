@@ -62,7 +62,7 @@ export function FeaturesSection() {
                   className="p-6 rounded-xl border border-accent-cyan/20 hover:border-accent-cyan/50 transition-all duration-300 bg-bg-secondary/50 backdrop-blur-sm"
                 >
                   <motion.div
-                    className={`w-12 h-12 rounded-lg bg-gradient-to-br ${feature.gradient} flex items-center justify-center mb-4 text-white`}
+                    className={`w-12 h-12 rounded-lg bg-gradient-to-br ${feature.gradient} flex items-center justify-center mb-4 text-text-primary`}
                     whileHover={{ scale: 1.1, rotate: 5 }}
                   >
                     <Icon className="w-6 h-6" />

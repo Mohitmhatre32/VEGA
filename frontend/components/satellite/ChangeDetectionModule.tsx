@@ -15,16 +15,16 @@ export function ChangeDetectionModule() {
         viewport={{ once: true }}
         className="max-w-6xl mx-auto"
       >
-        <motion.h2 variants={itemVariants} className="text-4xl font-bold mb-4 text-white">
+        <motion.h2 variants={itemVariants} className="text-4xl font-bold mb-4 text-text-primary">
           Change Detection
         </motion.h2>
-        <motion.p variants={itemVariants} className="text-gray-400 mb-12">
+        <motion.p variants={itemVariants} className="text-text-secondary mb-12">
           Year-over-year terrain transformation analysis (2019-2023)
         </motion.p>
 
         <motion.div
           variants={itemVariants}
-          className="p-8 rounded-2xl bg-gradient-to-br from-cyan-500/10 to-blue-500/10 border border-cyan-500/20"
+          className="p-8 rounded-2xl bg-bg-secondary/50 border border-accent-cyan/20 backdrop-blur-sm"
         >
           <ResponsiveContainer width="100%" height={400}>
             <AreaChart data={changeDetectionData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
@@ -42,18 +42,24 @@ export function ChangeDetectionModule() {
                   <stop offset="95%" stopColor="#228be6" stopOpacity={0} />
                 </linearGradient>
               </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="#2d3a5c" />
-              <XAxis dataKey="year" stroke="#a0aec0" />
-              <YAxis stroke="#a0aec0" />
+              <CartesianGrid strokeDasharray="3 3" stroke="#1A233A" />
+              <XAxis dataKey="year" stroke="#94A3B8" />
+              <YAxis stroke="#94A3B8" />
               <Tooltip
                 contentStyle={{
-                  backgroundColor: '#1a1f3a',
-                  border: '1px solid #2d3a5c',
-                  borderRadius: '8px',
+                  backgroundColor: '#0E1628',
+                  border: '1px solid #00F5FF',
+                  borderRadius: '12px',
+                  color: '#E6F1FF',
+                  boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)'
                 }}
                 formatter={(value) => `${value.toLocaleString()} km²`}
+                itemStyle={{ color: '#E6F1FF' }}
               />
-              <Legend />
+              <Legend
+                wrapperStyle={{ paddingTop: '20px' }}
+                formatter={(value) => <span style={{ color: '#94A3B8' }}>{value}</span>}
+              />
               <Area
                 type="monotone"
                 dataKey="urbanArea"
@@ -116,13 +122,13 @@ export function ChangeDetectionModule() {
             <motion.div
               key={i}
               whileHover={{ scale: 1.05 }}
-              className="p-4 rounded-lg bg-white bg-opacity-5 border border-gray-700/50"
+              className="p-4 rounded-lg bg-bg-secondary/30 border border-accent-cyan/10 hover:border-accent-cyan/50 hover:bg-bg-secondary/50 transition-all font-sans"
             >
-              <p className="text-xs text-gray-400 mb-2">{trend.label}</p>
-              <p className="text-2xl font-bold mb-1" style={{ color: trend.color }}>
+              <p className="text-xs text-text-secondary mb-2 uppercase tracking-wide">{trend.label}</p>
+              <p className="text-2xl font-bold mb-1 font-display" style={{ color: trend.color }}>
                 {trend.change}
               </p>
-              <p className="text-xs text-gray-300">{trend.percent} since 2019</p>
+              <p className="text-xs text-text-secondary/70">{trend.percent} since 2019</p>
             </motion.div>
           ))}
         </motion.div>

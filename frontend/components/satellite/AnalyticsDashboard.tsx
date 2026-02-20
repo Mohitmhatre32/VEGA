@@ -26,10 +26,10 @@ export function AnalyticsDashboard() {
         viewport={{ once: true }}
         className="max-w-6xl mx-auto"
       >
-        <motion.h2 variants={itemVariants} className="text-4xl font-bold mb-4 text-white">
+        <motion.h2 variants={itemVariants} className="text-4xl font-bold mb-4 text-text-primary">
           Performance Analytics
         </motion.h2>
-        <motion.p variants={itemVariants} className="text-gray-400 mb-12">
+        <motion.p variants={itemVariants} className="text-text-secondary mb-12">
           System accuracy and processing efficiency metrics
         </motion.p>
 
@@ -37,29 +37,32 @@ export function AnalyticsDashboard() {
           {/* Accuracy Trend */}
           <motion.div
             variants={itemVariants}
-            className="p-8 rounded-2xl bg-gradient-to-br from-cyan-500/10 to-blue-500/10 border border-cyan-500/20"
+            className="p-8 rounded-2xl bg-bg-secondary/50 border border-accent-cyan/20 backdrop-blur-sm"
           >
-            <h3 className="text-lg font-semibold text-white mb-4">Classification Accuracy</h3>
+            <h3 className="text-lg font-semibold text-text-primary mb-4">Classification Accuracy</h3>
             <ResponsiveContainer width="100%" height={300}>
               <LineChart data={analyticsData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#2d3a5c" />
-                <XAxis dataKey="month" stroke="#a0aec0" />
-                <YAxis stroke="#a0aec0" />
+                <CartesianGrid strokeDasharray="3 3" stroke="#1A233A" />
+                <XAxis dataKey="month" stroke="#94A3B8" />
+                <YAxis stroke="#94A3B8" />
                 <Tooltip
                   contentStyle={{
-                    backgroundColor: '#1a1f3a',
-                    border: '1px solid #2d3a5c',
-                    borderRadius: '8px',
+                    backgroundColor: '#0E1628',
+                    border: '1px solid #00F5FF',
+                    borderRadius: '12px',
+                    color: '#E6F1FF',
+                    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)'
                   }}
+                  itemStyle={{ color: '#E6F1FF' }}
                   formatter={(value) => `${value}%`}
                 />
                 <Line
                   type="monotone"
                   dataKey="accuracy"
-                  stroke="#00d9ff"
+                  stroke="#00F5FF"
                   strokeWidth={3}
-                  dot={{ fill: '#00d9ff', r: 5 }}
-                  activeDot={{ r: 7 }}
+                  dot={{ fill: '#00F5FF', r: 5, strokeWidth: 0 }}
+                  activeDot={{ r: 7, fill: '#E6F1FF' }}
                 />
               </LineChart>
             </ResponsiveContainer>
@@ -68,23 +71,26 @@ export function AnalyticsDashboard() {
           {/* Processing Speed */}
           <motion.div
             variants={itemVariants}
-            className="p-8 rounded-2xl bg-gradient-to-br from-cyan-500/10 to-blue-500/10 border border-cyan-500/20"
+            className="p-8 rounded-2xl bg-bg-secondary/50 border border-accent-cyan/20 backdrop-blur-sm"
           >
-            <h3 className="text-lg font-semibold text-white mb-4">Processing Time</h3>
+            <h3 className="text-lg font-semibold text-text-primary mb-4">Processing Time</h3>
             <ResponsiveContainer width="100%" height={300}>
               <BarChart data={analyticsData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#2d3a5c" />
-                <XAxis dataKey="month" stroke="#a0aec0" />
-                <YAxis stroke="#a0aec0" />
+                <CartesianGrid strokeDasharray="3 3" stroke="#1A233A" />
+                <XAxis dataKey="month" stroke="#94A3B8" />
+                <YAxis stroke="#94A3B8" />
                 <Tooltip
                   contentStyle={{
-                    backgroundColor: '#1a1f3a',
-                    border: '1px solid #2d3a5c',
-                    borderRadius: '8px',
+                    backgroundColor: '#0E1628',
+                    border: '1px solid #00F5FF',
+                    borderRadius: '12px',
+                    color: '#E6F1FF',
+                    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)'
                   }}
+                  itemStyle={{ color: '#E6F1FF' }}
                   formatter={(value) => `${value}ms`}
                 />
-                <Bar dataKey="processTime" fill="#00ff88" radius={[8, 8, 0, 0]} />
+                <Bar dataKey="processTime" fill="#00FF88" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </motion.div>
@@ -93,18 +99,18 @@ export function AnalyticsDashboard() {
         {/* Key Metrics Grid */}
         <motion.div variants={itemVariants} className="mt-8 grid grid-cols-1 md:grid-cols-4 gap-4">
           {[
-            { label: 'Avg Accuracy', value: '95.2%', color: 'from-cyan-500 to-blue-500' },
-            { label: 'Avg Coverage', value: '89.5%', color: 'from-green-500 to-cyan-500' },
-            { label: 'Avg Speed', value: '38ms', color: 'from-purple-500 to-pink-500' },
-            { label: 'Total Processed', value: '14,827', color: 'from-orange-500 to-red-500' },
+            { label: 'Avg Accuracy', value: '95.2%', color: 'text-accent-cyan' },
+            { label: 'Avg Coverage', value: '89.5%', color: 'text-accent-blue' },
+            { label: 'Avg Speed', value: '38ms', color: 'text-accent-green' },
+            { label: 'Total Processed', value: '14,827', color: 'text-accent-orange' },
           ].map((metric, i) => (
             <motion.div
               key={i}
               whileHover={{ scale: 1.05 }}
-              className={`p-4 rounded-lg bg-gradient-to-br ${metric.color} bg-opacity-10 border border-white border-opacity-20`}
+              className="p-4 rounded-lg bg-bg-secondary/30 border border-accent-cyan/10 hover:border-accent-cyan/30 hover:bg-bg-secondary/50 transition-all font-sans"
             >
-              <p className="text-xs text-gray-400 mb-1">{metric.label}</p>
-              <p className="text-2xl font-bold text-white">{metric.value}</p>
+              <p className="text-xs text-text-secondary mb-1 uppercase tracking-wider">{metric.label}</p>
+              <p className={`text-3xl font-bold font-display ${metric.color}`}>{metric.value}</p>
             </motion.div>
           ))}
         </motion.div>
