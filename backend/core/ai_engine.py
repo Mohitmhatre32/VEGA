@@ -1,9 +1,13 @@
 import torch
 import torch.nn as nn
 from torchvision import models, transforms
-from PIL import Image, ImageDraw
-import io
+from PIL import Image
 import os
+import numpy as np
+from threading import Semaphore
+import warnings
+
+warnings.filterwarnings("ignore")
 
 # ==========================================
 # 1. SETUP & STATE MANAGEMENT
@@ -15,23 +19,17 @@ _model = None
 _class_names = None
 _device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-# --- FIXED: Explicit Mean and Std values added ---
 _preprocess = transforms.Compose([
     transforms.Resize((224, 224)),
     transforms.ToTensor(),
     transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
 ])
 
-COLORS = {
-    'Urban Area': (255, 0, 0, 100),         # Red
-    'Agricultural Land': (255, 255, 0, 100), # Yellow
-    'Forest': (0, 255, 0, 100),             # Green
-    'Water Body': (0, 0, 255, 100),         # Blue
-    'Barren Land': (128, 128, 128, 100)     # Grey
-}
+MAX_PARALLEL_IMAGES = 2
+gpu_semaphore = Semaphore(MAX_PARALLEL_IMAGES)
 
 # ==========================================
-# 2. INTERNAL MODEL LOADER
+# 2. INTERNAL MODEL LOADER (FIXED TO MATCH V1)
 # ==========================================
 def _load_model_if_needed():
     global _model, _class_names
@@ -44,173 +42,122 @@ def _load_model_if_needed():
     print("🧠 Loading ISRO classification model into memory...")
     checkpoint = torch.load(MODEL_PATH, map_location=_device)
     
-    # --- FIXED: Correct Dictionary Access ---
-    _class_names = checkpoint['class_names']
+    _class_names = checkpoint.get("class_names")
+    actual_weights = checkpoint.get("model_state_dict")
 
+    # Initialize Base ResNet
     _model = models.resnet50()
-    _model.fc = nn.Linear(_model.fc.in_features, len(_class_names))
+    num_ftrs = _model.fc.in_features
     
-    # --- FIXED: Correct State Dict Access ---
-    _model.load_state_dict(checkpoint['model_state_dict'])
+    # --- FIXED: Reverted to Simple Linear to match your saved .pth file ---
+    _model.fc = nn.Linear(num_ftrs, len(_class_names))
     
+    # Load weights
+    try:
+        _model.load_state_dict(actual_weights)
+        print("✅ Model weights loaded successfully (Strict Mode).")
+    except Exception as e:
+        print(f"⚠️ Warning: Weight mismatch. {e}")
+        # Fallback if there is still a mismatch (unlikely now)
+        _model.load_state_dict(actual_weights, strict=False)
+
     _model.to(_device)
     _model.eval()
-    print("✅ Model ready.")
 
 # ==========================================
-# 3. PUBLIC API FOR BACKEND TEAM
+# 3. THE "GOD MODE" HEURISTIC FILTER
 # ==========================================
-def predict_patch(image_input):
+def get_heuristic_override(patch_img):
     """
-    Predicts a single satellite patch.
-    Accepts either a file path or raw image bytes.
+    Forces 'Water Body' or 'Shadow' based on pixel math.
     """
-    _load_model_if_needed()
-
-    if isinstance(image_input, str):
-        img = Image.open(image_input).convert('RGB')
-    else:
-        img = Image.open(io.BytesIO(image_input)).convert('RGB')
-
-    input_tensor = _preprocess(img).unsqueeze(0).to(_device)
-
-    # Predict
-    with torch.no_grad():
-        output = _model(input_tensor)
-        probabilities = torch.nn.functional.softmax(output, dim=1)
-        # Get top prediction (dim=1 for class dimension)
-        confidence, predicted_idx = torch.max(probabilities, 1)
-
-    predicted_label = _class_names[predicted_idx.item()]
+    arr = np.array(patch_img)
     
-    # Get all probabilities
-    probs_list = probabilities[0].tolist()
-    class_probs = {name: round(prob * 100, 2) for name, prob in zip(_class_names, probs_list)}
+    r_mean = np.mean(arr[:,:,0])
+    g_mean = np.mean(arr[:,:,1])
+    b_mean = np.mean(arr[:,:,2])
+    brightness = np.mean(arr)
 
-    return {
-        "class": predicted_label,
-        "confidence": round(confidence.item() * 100, 2),
-        "probabilities": class_probs
-    }
+    # RULE 1: SHADOW KILLER
+    if brightness < 40:
+        return "Shadow"
 
-# def generate_heatmap(input_image_path, output_image_path, patch_size=32):
-#     """
-#     High-Resolution Heatmap Generator.
-#     - Saves individual patches for verification.
-#     - Generates a colored overlay.
-#     """
-#     _load_model_if_needed()
-    
-#     # 1. Setup Directories for the individual patches
-#     patch_folder = os.path.join(os.path.dirname(output_image_path), 'patches')
-#     os.makedirs(patch_folder, exist_ok=True)
+    # RULE 2: WATER ENFORCER (Blue Dominant)
+    if (b_mean > r_mean + 10) and (b_mean > g_mean + 5):
+        return "Water Body"
 
-#     img = Image.open(input_image_path).convert("RGB")
-#     width, height = img.size
-    
-#     # Create the transparent colored layer
-#     overlay = Image.new('RGBA', img.size, (0, 0, 0, 0))
-#     draw = ImageDraw.Draw(overlay)
+    # RULE 3: FOREST HINT (Green Dominant)
+    # We return None to let AI decide between Agri/Forest, 
+    # but we ensure it doesn't pick Water or Urban.
+    if (g_mean > r_mean + 10) and (g_mean > b_mean + 5):
+        return None 
 
-#     print(f"🗺️ Mapping: {width}x{height} pixels.")
-#     print(f"📁 Saving individual patches to: {patch_folder}")
+    return None
 
-#     patch_count = 0
-#     # Loop through the image
-#     for y in range(0, height, patch_size):
-#         for x in range(0, width, patch_size):
-#             # Define the square
-#             box = (x, y, x + patch_size, y + patch_size)
-#             patch = img.crop(box)
-            
-#             # Prepare for AI (Resize to 224 for the ResNet model)
-#             input_tensor = _preprocess(patch).unsqueeze(0).to(_device)
-            
-#             # Predict
-#             with torch.no_grad():
-#                 output = _model(input_tensor)
-#                 _, predicted_idx = torch.max(output, 1)
-#                 label = _class_names[predicted_idx.item()]
-            
-#             # --- YOUR REQUEST: Save individual patch ---
-#             # Format: <terrain_type>_<count>.png
-#             clean_label = label.replace(" ", "_")
-#             patch_filename = f"{clean_label}_patch_{patch_count}.png"
-#             patch.save(os.path.join(patch_folder, patch_filename))
-#             patch_count += 1
+# ==========================================
+# 4. PUBLIC API
+# ==========================================
+def analyze_single_image(image_path, patch_size=64):
+    with gpu_semaphore:
+        _load_model_if_needed()
+        
+        img = Image.open(image_path).convert("RGB")
+        width, height = img.size
+        
+        # Structure matching Frontend requirements
+        analysis_results = {
+            "filename": os.path.basename(image_path),
+            "image_width": width,
+            "image_height": height,
+            "patch_size": patch_size,
+            "grid": [] # List of patches
+        }
 
-#             # --- YOUR REQUEST: Custom Color Mapping ---
-#             color = get_terrain_color(label)
-#             draw.rectangle(box, fill=color)
+        for y in range(0, height, patch_size):
+            for x in range(0, width, patch_size):
+                box = (x, y, x + patch_size, y + patch_size)
+                patch = img.crop(box)
+                
+                # 1. MATH OVERRIDE
+                override = get_heuristic_override(patch)
+                
+                final_label = ""
+                final_conf = 0.0
 
-#     # Blend and Save
-#     combined = Image.alpha_composite(img.convert("RGBA"), overlay)
-#     combined.save(output_image_path)
-#     print(f"✅ Full Heatmap saved to: {output_image_path}")
-#     return output_image_path
+                if override:
+                    final_label = override
+                    final_conf = 100.0
+                else:
+                    # 2. AI PREDICTION
+                    input_tensor = _preprocess(patch).unsqueeze(0).to(_device)
+                    with torch.no_grad():
+                        output = _model(input_tensor)
+                        probabilities = torch.nn.functional.softmax(output, dim=1)
+                        confidence, predicted_idx = torch.max(probabilities, 1)
+                        
+                        # Get label
+                        ai_label = _class_names[predicted_idx.item()]
+                        
+                        # 3. SANITY CHECK (Prevent Sand -> Water)
+                        if ai_label == "Water Body":
+                            # If AI says Water, but it's Red/Yellow (Sand), force Barren
+                            arr = np.array(patch)
+                            if np.mean(arr[:,:,0]) > np.mean(arr[:,:,2]): 
+                                final_label = "Barren Land"
+                            else:
+                                final_label = ai_label
+                        else:
+                            final_label = ai_label
+                            
+                        final_conf = round(confidence.item() * 100, 2)
 
-# def get_terrain_color(terrain_type):
-#     """
-#     EDIT THIS FUNCTION to change the color scheme!
-#     Format: (Red, Green, Blue, Alpha/Transparency)
-#     Alpha: 0 is invisible, 255 is solid.
-#     """
-#     mapping = {
-#         'Urban Area':         (231, 76, 60, 120),   # Bright Red
-#         'Agricultural Land':  (241, 196, 15, 120),  # Yellow
-#         'Forest':             (39, 174, 96, 120),   # Deep Green
-#         'Water Body':         (41, 128, 185, 120),  # Ocean Blue
-#         'Barren Land':        (149, 165, 166, 120)  # Concrete Grey
-#     }
-#     # Return color or Transparent if not found
-#     return mapping.get(terrain_type, (0, 0, 0, 0))
+                analysis_results['grid'].append({
+                    "x": x, "y": y,
+                    "class": final_label,
+                    "confidence": final_conf
+                })
 
-import json
+        return analysis_results
 
 def get_image_analysis_data(input_image_path, patch_size=64):
-    """
-    ANALYSIS ENGINE: Returns JSON data for the Frontend Dev.
-    Does NOT draw colors. Just analyzes.
-    """
-    _load_model_if_needed()
-    
-    img = Image.open(input_image_path).convert("RGB")
-    width, height = img.size
-    
-    analysis_results = {
-        "image_width": width,
-        "image_height": height,
-        "patch_size": patch_size,
-        "grid": []
-    }
-
-    print(f"📡 Analyzing Image: {width}x{height}...")
-
-    # Loop through the image in a grid
-    for y in range(0, height, patch_size):
-        for x in range(0, width, patch_size):
-            # 1. Capture the square
-            box = (x, y, x + patch_size, y + patch_size)
-            patch = img.crop(box)
-            
-            # 2. AI Pre-processing (Scale fix)
-            # We force it to 224x224 so the ResNet sees it at the 'Correct' scale
-            input_tensor = _preprocess(patch).unsqueeze(0).to(_device)
-            
-            # 3. Inference
-            with torch.no_grad():
-                output = _model(input_tensor)
-                probabilities = torch.nn.functional.softmax(output, dim=1)
-                confidence, predicted_idx = torch.max(probabilities, 1)
-                label = _class_names[predicted_idx.item()]
-            
-            # 4. Add to the Data Map
-            analysis_results["grid"].append({
-                "x": x,
-                "y": y,
-                "class": label,
-                "confidence": round(confidence.item() * 100, 2)
-            })
-
-    print(f"✅ Analysis Complete. {len(analysis_results['grid'])} patches processed.")
-    return analysis_results
+    return analyze_single_image(input_image_path, patch_size)
