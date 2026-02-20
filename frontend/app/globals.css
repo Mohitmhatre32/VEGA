@@ -95,7 +95,7 @@
 }
 
 @theme inline {
-  --font-sans: 'Inter', sans-serif;
+  --font-sans: 'Orbitron', 'Inter', sans-serif;
   --font-mono: 'JetBrains Mono', monospace;
   --font-display: 'Orbitron', sans-serif;
 
