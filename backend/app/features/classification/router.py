@@ -76,33 +76,3 @@ async def get_leaderboard():
     return {
         "leaderboard": ClassificationService.get_model_leaderboard()
     }
-
-
-@router.post("/analyze-map")
-async def analyze_map(
-    file: UploadFile = File(...),
-    patch_size: int = 64
-):
-    """
-    Full satellite image grid analysis.
-
-    Upload any satellite image and receive a detailed patch-by-patch
-    JSON breakdown identical to the output of test_run.py:
-
-    {
-        "filename": "...",
-        "image_width": <int>,
-        "image_height": <int>,
-        "patch_size": <int>,
-        "grid": [
-            { "x": 0, "y": 0, "class": "Agricultural Land", "confidence": 81.39 },
-            ...
-        ]
-    }
-
-    - **file**: satellite image (JPG / PNG / JPEG)
-    - **patch_size**: size of each square patch in pixels (default 64)
-    """
-    contents = await file.read()
-    result = ClassificationService.analyze_map(contents, file.filename, patch_size)
-    return result
