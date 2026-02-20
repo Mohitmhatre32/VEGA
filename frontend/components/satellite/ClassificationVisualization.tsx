@@ -7,7 +7,7 @@ import {
     BarChart2, Layers,
 } from 'lucide-react';
 import { useImageContext } from '@/lib/ImageContext';
-import { generateAnalysisReport } from '@/lib/generateReport';
+
 
 // ── Colour map ─────────────────────────────────────────────────────────────────
 const CLASS_COLORS: Record<string, string> = {
