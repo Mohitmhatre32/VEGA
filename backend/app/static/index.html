@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>VEGA | Satellite Analytics Console</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            background-color: #0d0d12;
+            color: #e2e2e2;
+        }
+
+        .isro-purple {
+            background-color: #6d28d9;
+        }
+
+        .isro-border {
+            border-color: #facc15;
+        }
+    </style>
+</head>
+
+<body class="p-8">
+    <div class="max-w-4xl mx-auto border-l-4 isro-border pl-6">
+        <header class="mb-10">
+            <h1 class="text-4xl font-bold text-yellow-400">VEGA CONSOLE</h1>
+            <p class="text-gray-400">AI-Based Satellite Image Terrain Classification</p>
+        </header>
+
+        <section class="bg-gray-900 p-6 rounded-lg border border-gray-800">
+            <h2 class="text-xl mb-4 text-purple-400 font-mono">>_ Upload Satellite Patch</h2>
+            <input type="file" id="imageInput"
+                class="block w-full text-sm text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-purple-600 file:text-white hover:file:bg-purple-700 cursor-pointer" />
+            <button onclick="uploadImage()"
+                class="mt-4 px-6 py-2 isro-purple text-white rounded font-bold hover:bg-purple-800 transition">ANALYZE
+                TERRAIN</button>
+        </section>
+
+        <section id="resultSection" class="mt-8 hidden">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="bg-black p-4 rounded border border-gray-700">
+                    <h3 class="text-yellow-500 font-bold mb-2 uppercase">Classification Result</h3>
+                    <div id="mainLabel" class="text-3xl font-bold">---</div>
+                    <div id="confidence" class="text-purple-400 mt-1 italic">---</div>
+                </div>
+                <div class="bg-black p-4 rounded border border-gray-700 font-mono text-sm">
+                    <h3 class="text-gray-500 mb-2 uppercase">Probability Distribution</h3>
+                    <div id="distribution"></div>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <script>
+        async function uploadImage() {
+            const fileInput = document.getElementById('imageInput');
+            if (!fileInput.files[0]) return alert("Please select an image");
+
+            const formData = new FormData();
+            formData.append('file', fileInput.files[0]);
+
+            const response = await fetch('/classification/predict', {
+                method: 'POST',
+                body: formData
+            });
+
+            const data = await response.json();
+
+            document.getElementById('resultSection').classList.remove('hidden');
+            document.getElementById('mainLabel').innerText = data.prediction;
+            document.getElementById('confidence').innerText = "Confidence: " + data.confidence;
+
+            let distHtml = "";
+            for (const [cls, val] of Object.entries(data.breakdown)) {
+                distHtml += `<div class="mb-1">${cls}: ${val}%</div>
+                             <div class="w-full bg-gray-800 h-1 mb-2"><div class="bg-purple-500 h-1" style="width: ${val}%"></div></div>`;
+            }
+            document.getElementById('distribution').innerHTML = distHtml;
+        }
+    </script>
+</body>
+
+</html>
