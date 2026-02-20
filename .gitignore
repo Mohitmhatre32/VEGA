@@ -12,9 +12,11 @@ build/
 # virtual environment
 .venv/
 venv/
+
 # byte-compiled/optimized files
 __pycache__/
 *.py[cod]
+tests/
 
 # installer logs
 pip-log.txt
@@ -31,7 +33,7 @@ htmlcov/
 .ipynb_checkpoints
 
 # Model checkpoints and saved models
-datasets/
+dataset/
 scripts/
 
 # IDE specific files
