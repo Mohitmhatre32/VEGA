@@ -1,11 +1,17 @@
 'use client';
 
-import { motion } from 'framer-motion';
-import { Satellite, Menu, X } from 'lucide-react';
+import { motion, useScroll, useMotionValueEvent } from 'framer-motion';
+import { Satellite, Menu, X, ChevronRight } from 'lucide-react';
 import { useState } from 'react';
 
 export function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
+  const { scrollY } = useScroll();
+
+  useMotionValueEvent(scrollY, "change", (latest) => {
+    setScrolled(latest > 20);
+  });
 
   const navItems = [
     { label: 'Dashboard', href: '#dashboard' },
@@ -28,26 +34,32 @@ export function Navbar() {
     <motion.nav
       initial={{ y: -100 }}
       animate={{ y: 0 }}
-      transition={{ duration: 0.5 }}
-      className="fixed top-0 left-0 right-0 z-50 backdrop-blur-md"
-      style={{
-        background: 'linear-gradient(135deg, rgba(10, 14, 39, 0.8) 0%, rgba(26, 31, 58, 0.6) 100%)',
-        borderBottom: '1px solid rgba(0, 217, 255, 0.2)',
-      }}
+      transition={{ duration: 0.5, type: "spring", stiffness: 100 }}
+      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${scrolled
+          ? 'glass-strong border-b border-accent-cyan/20 py-3'
+          : 'bg-transparent py-5'
+        }`}
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16">
+        <div className="flex items-center justify-between">
           {/* Logo */}
           <motion.div
             whileHover={{ scale: 1.05 }}
-            className="flex items-center gap-2 cursor-pointer"
+            className="flex items-center gap-3 cursor-pointer group"
           >
-            <div className="p-2 rounded-lg bg-gradient-to-br from-cyan-500 to-blue-500">
-              <Satellite className="w-5 h-5 text-white" />
+            <div className="relative p-2.5 rounded-xl bg-gradient-to-br from-accent-cyan/20 to-accent-blue/20 border border-accent-cyan/30 overflow-hidden shadow-lg shadow-accent-cyan/20">
+              <motion.div
+                animate={{ rotate: 360 }}
+                transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
+                className="absolute inset-0 bg-gradient-to-tr from-accent-cyan/10 to-transparent"
+              />
+              <Satellite className="w-6 h-6 text-accent-cyan group-hover:text-white transition-colors relative z-10" />
             </div>
-            <span className="text-lg font-bold bg-gradient-to-r from-cyan-400 to-blue-400 bg-clip-text text-transparent">
-              SatelliteAI
-            </span>
+            <div className="flex flex-col justify-center">
+              <span className="text-2xl font-bold bg-gradient-to-r from-white via-cyan-100 to-accent-cyan bg-clip-text text-transparent tracking-tight leading-none">
+                SatelliteAI
+              </span>
+            </div>
           </motion.div>
 
           {/* Desktop menu */}
@@ -57,10 +69,13 @@ export function Navbar() {
                 key={i}
                 href={item.href}
                 onClick={handleNavClick}
-                whileHover={{ color: '#00d9ff' }}
-                className="text-gray-300 text-sm font-medium transition-colors hover:text-cyan-400 cursor-pointer"
+                className="relative px-3 py-1 text-base font-medium text-text-secondary hover:text-white transition-colors group"
               >
-                {item.label}
+                <span className="relative z-10">{item.label}</span>
+                <motion.div
+                  className="absolute bottom-0 left-0 h-[2px] bg-accent-cyan w-0 group-hover:w-full transition-all duration-300 ease-out"
+                />
+                <div className="absolute inset-0 bg-white/5 opacity-0 group-hover:opacity-100 blur-lg transition-opacity duration-300 rounded-lg -z-10" />
               </motion.a>
             ))}
           </div>
@@ -68,54 +83,67 @@ export function Navbar() {
           {/* CTA Button */}
           <div className="hidden sm:block">
             <motion.button
-              whileHover={{ scale: 1.05 }}
+              whileHover={{ scale: 1.05, boxShadow: "0 0 25px rgba(0, 245, 255, 0.5)" }}
               whileTap={{ scale: 0.95 }}
-              className="px-6 py-2 rounded-lg bg-gradient-to-r from-cyan-500 to-blue-500 text-white text-sm font-semibold hover:shadow-lg hover:shadow-cyan-500/50 transition-all"
+              className="group relative px-6 py-2.5 rounded-xl bg-gradient-to-r from-accent-cyan to-accent-blue text-white text-sm font-bold overflow-hidden shadow-lg shadow-accent-cyan/30 border border-accent-cyan/30"
             >
-              Try Now
+              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700 ease-in-out" />
+              <span className="relative z-10 flex items-center gap-2">
+                Launch App
+                <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+              </span>
             </motion.button>
           </div>
 
           {/* Mobile menu button */}
           <motion.button
-            whileTap={{ scale: 0.95 }}
+            whileTap={{ scale: 0.9 }}
             onClick={() => setIsOpen(!isOpen)}
-            className="md:hidden p-2 rounded-lg hover:bg-white/10 transition-colors"
+            className="md:hidden p-2 rounded-lg text-text-secondary hover:text-white hover:bg-white/10 transition-colors"
           >
-            {isOpen ? (
-              <X className="w-5 h-5 text-gray-300" />
-            ) : (
-              <Menu className="w-5 h-5 text-gray-300" />
-            )}
+            {isOpen ? <X className="w-7 h-7" /> : <Menu className="w-7 h-7" />}
           </motion.button>
         </div>
 
         {/* Mobile menu */}
-        {isOpen && (
-          <motion.div
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            className="md:hidden border-t border-cyan-500/20 py-4"
-          >
+        <motion.div
+          initial={false}
+          animate={{
+            height: isOpen ? "auto" : 0,
+            opacity: isOpen ? 1 : 0,
+            marginBottom: isOpen ? 16 : 0
+          }}
+          transition={{ duration: 0.3, ease: "easeInOut" }}
+          className="md:hidden overflow-hidden"
+        >
+          <div className="mt-4 bg-gradient-to-b from-bg-secondary/95 to-bg-secondary/80 backdrop-blur-xl rounded-2xl border border-white/10 p-4 space-y-2 shadow-2xl">
             {navItems.map((item, i) => (
               <motion.a
                 key={i}
+                initial={{ x: -20, opacity: 0 }}
+                animate={{ x: isOpen ? 0 : -20, opacity: isOpen ? 1 : 0 }}
+                transition={{ delay: i * 0.1 }}
                 href={item.href}
-                className="block px-4 py-2 text-gray-300 text-sm hover:text-cyan-400 transition-colors cursor-pointer"
                 onClick={(e) => {
                   handleNavClick(e);
                   setIsOpen(false);
                 }}
+                className="flex items-center justify-between p-4 rounded-xl hover:bg-white/5 text-text-secondary hover:text-white transition-all group border border-transparent hover:border-white/5"
               >
-                {item.label}
+                <span className="font-medium text-lg">{item.label}</span>
+                <ChevronRight className="w-5 h-5 opacity-0 group-hover:opacity-100 -translate-x-2 group-hover:translate-x-0 transition-all text-accent-cyan" />
               </motion.a>
             ))}
-            <motion.button className="w-full mt-4 px-4 py-2 rounded-lg bg-gradient-to-r from-cyan-500 to-blue-500 text-white text-sm font-semibold">
-              Try Now
+            <motion.button
+              initial={{ y: 10, opacity: 0 }}
+              animate={{ y: isOpen ? 0 : 10, opacity: isOpen ? 1 : 0 }}
+              transition={{ delay: 0.3 }}
+              className="w-full mt-4 py-4 rounded-xl bg-gradient-to-r from-accent-cyan to-accent-blue text-white font-bold text-lg shadow-lg shadow-accent-cyan/20"
+            >
+              Launch App
             </motion.button>
-          </motion.div>
-        )}
+          </div>
+        </motion.div>
       </div>
     </motion.nav>
   );
