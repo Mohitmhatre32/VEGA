@@ -1,0 +1,43 @@
+# Node.js
+# dependencies
+/node_modules
+.env
+npm-debug.log*
+yarn-error.log*
+.npm/
+dist/
+build/
+
+# Python
+# virtual environment
+.venv/
+
+# byte-compiled/optimized files
+__pycache__/
+*.py[cod]
+
+# installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test and coverage reports
+htmlcov/
+.tox/
+.coverage
+.cache
+
+# Machine Learning and Data Science
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints
+
+# Model checkpoints and saved models
+# you may also want to ignore entire directories for large models, e.g.:
+
+# temporary files and data
+
+# IDE specific files
+# Visual Studio Code
+.vscode/
+
+# PyCharm
+.idea/
