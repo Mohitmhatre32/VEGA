@@ -6,6 +6,7 @@ import os
 import numpy as np
 from threading import Semaphore
 import warnings
+import io
 
 warnings.filterwarnings("ignore")
 
@@ -158,6 +159,40 @@ def analyze_single_image(image_path, patch_size=64):
                 })
 
         return analysis_results
+
+def predict_patch(image_input):
+    """
+    Predicts a single satellite patch.
+    Accepts either a file path or raw image bytes.
+    """
+    _load_model_if_needed()
+
+    if isinstance(image_input, str):
+        img = Image.open(image_input).convert('RGB')
+    else:
+        img = Image.open(io.BytesIO(image_input)).convert('RGB')
+
+    input_tensor = _preprocess(img).unsqueeze(0).to(_device)
+
+    # Predict
+    with torch.no_grad():
+        output = _model(input_tensor)
+        probabilities = torch.nn.functional.softmax(output, dim=1)
+        # Get top prediction (dim=1 for class dimension)
+        confidence, predicted_idx = torch.max(probabilities, 1)
+
+    predicted_label = _class_names[predicted_idx.item()]
+    
+    # Get all probabilities
+    probs_list = probabilities[0].tolist()
+    class_probs = {name: round(prob * 100, 2) for name, prob in zip(_class_names, probs_list)}
+
+    return {
+        "class": predicted_label,
+        "confidence": round(confidence.item() * 100, 2),
+        "probabilities": class_probs
+    }
+
 
 def get_image_analysis_data(input_image_path, patch_size=64):
     return analyze_single_image(input_image_path, patch_size)
