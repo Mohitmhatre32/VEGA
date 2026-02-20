@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Upload, FileImage, CheckCircle2, Loader2, Zap, X, AlertTriangle } from 'lucide-react';
 import { predictImage, type PredictionResult } from '@/lib/classificationApi';
 import { ClassificationResultCard } from './ClassificationResultCard';
+import { useImageContext } from '@/lib/ImageContext';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -37,6 +38,7 @@ export function UploadPanel() {
   /** The most recently completed prediction to display as result card */
   const [latestResult, setLatestResult] = useState<PredictionResult | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const { setUploadedImageUrl } = useImageContext();
 
   // ── helpers ──
 
@@ -62,6 +64,10 @@ export function UploadPanel() {
     const entry: UploadedFile = { id, name: file.name, size: file.size, step: 0 };
     setUploads((prev) => [...prev, entry]);
 
+    // ── Publish a live preview immediately (fast blob URL) ──
+    const previewUrl = URL.createObjectURL(file);
+    setUploadedImageUrl(previewUrl);
+
     try {
       // Step 0 → 1 (upload sent, waiting for server)
       await new Promise((r) => setTimeout(r, 400));
@@ -74,12 +80,15 @@ export function UploadPanel() {
       // ── Real API call ──
       const result = await predictImage(file);
 
-      // Step 2 → 3 (done)
+      // Step 2 → 3 (done) — preview URL stays live in the map viewer
       setResult(id, result);
       setLatestResult(result);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Unknown error';
       setError(id, msg);
+      // Clear the preview on error
+      setUploadedImageUrl(null);
+      URL.revokeObjectURL(previewUrl);
     }
   };
 
