@@ -88,7 +88,7 @@ For large-scale mapping (e.g., 2000x2000 px images):
    ```
 4. Start the server:
    ```bash
-   python app/main.py
+    uvicorn app.main:app --reload --port 8000
    ```
    The API will be available at `http://localhost:8000`.
 
