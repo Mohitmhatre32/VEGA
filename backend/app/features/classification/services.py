@@ -3,6 +3,7 @@ import numpy as np
 from PIL import Image
 from app.core.config import settings
 from PIL import Image, ImageEnhance
+import os
 
 class ClassificationService:
     @staticmethod
@@ -19,20 +20,63 @@ class ClassificationService:
         return np.expand_dims(img_tensor, axis=0)
 
     @staticmethod
-    def call_teammate_model(image_tensor: np.ndarray) -> dict:
+    def call_teammate_model(image_bytes: bytes) -> dict:
         """
         ### TEAMMATE INTEGRATION POINT ###
+        Calls the actual ISRO model from backend/core/ai_engine.py
         """
-        # --- MOCK LOGIC FOR NOW ---
-        probs = np.random.dirichlet(np.ones(5), size=1)[0]
-        class_idx = np.argmax(probs)
-        
-        return {
-            "label": settings.CLASSES[class_idx],
-            "confidence": round(float(probs[class_idx]) * 100, 2),
-            "probabilities": {settings.CLASSES[i]: round(float(probs[i]) * 100, 2) for i in range(5)}
-        }
+        # 1. Save Input for Demo
+        try:
+            static_dir = os.path.join(os.getcwd(), "app/static")
+            os.makedirs(static_dir, exist_ok=True)
+            
+            with open(os.path.join(static_dir, "latest_input.png"), "wb") as f:
+                f.write(image_bytes)
+        except Exception as e:
+            print(f"Warning: Could not save demo input: {e}")
 
+        # 2. Call Real Model
+        # We need to import the core engine. 
+        # Since uvicorn runs from 'backend/', 'app' is a package, and 'core' is a sibling folder.
+        # We try to import it dynamically or assume python path is set root-wise.
+        try:
+            import sys
+            # Ensure backend root is in path
+            current_dir = os.path.dirname(os.path.abspath(__file__))
+            backend_root = os.path.abspath(os.path.join(current_dir, "../../../"))
+            if backend_root not in sys.path:
+                sys.path.append(backend_root)
+                
+            from core import ai_engine
+            
+            # Predict
+            result = ai_engine.predict_patch(image_bytes)
+            
+            # 3. Save Output for Demo
+            try:
+                import json
+                with open(os.path.join(static_dir, "latest_result.json"), "w") as f:
+                    json.dump(result, f, indent=4)
+            except Exception as e:
+                print(f"Warning: Could not save demo output: {e}")
+                
+            return {
+                "label": result["class"],
+                "confidence": result["confidence"],
+                "probabilities": result["probabilities"]
+            }
+            
+        except ImportError:
+            print("CRITICAL: Could not import backend.core.ai_engine. Falling back to MOCK.")
+            # Fallback Mock (Copy of original)
+            probs = np.random.dirichlet(np.ones(5), size=1)[0]
+            class_idx = np.argmax(probs)
+            return {
+                "label": settings.CLASSES[class_idx],
+                "confidence": round(float(probs[class_idx]) * 100, 2),
+                "probabilities": {settings.CLASSES[i]: round(float(probs[i]) * 100, 2) for i in range(5)}
+            }
+    
     @staticmethod
     def process_batch(predictions: list) -> dict:
         """
@@ -57,14 +101,11 @@ class ClassificationService:
         Compares two images (Year 1 vs Year 2).
         Calculates % change and Area shift (km²).
         """
-        # 1. Process both images
-        tensor1 = ClassificationService.preprocess_image(img1_bytes)
-        result1 = ClassificationService.call_teammate_model(tensor1)
-        
-        tensor2 = ClassificationService.preprocess_image(img2_bytes)
-        result2 = ClassificationService.call_teammate_model(tensor2)
+        # 1. Process both images (Pass bytes directly now)
+        result1 = ClassificationService.call_teammate_model(img1_bytes)
+        result2 = ClassificationService.call_teammate_model(img2_bytes)
 
-        # 2. Mocking Area Calculation based on probabilities
+        # 2. Area Calculation based on probabilities
         stats = []
         
         for cls in settings.CLASSES:
