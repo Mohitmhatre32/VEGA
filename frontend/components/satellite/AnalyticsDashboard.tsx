@@ -7,21 +7,29 @@ import {
 } from 'recharts';
 
 /* ─── Mock data ──────────────────────────────────── */
+/* ── Sourced from met.json → training_curve ── */
 const lossData = [
-  { epoch: 1, loss: 2.41 }, { epoch: 5, loss: 1.82 },
-  { epoch: 10, loss: 1.35 }, { epoch: 20, loss: 0.94 },
-  { epoch: 40, loss: 0.67 }, { epoch: 60, loss: 0.48 },
-  { epoch: 80, loss: 0.35 }, { epoch: 100, loss: 0.24 },
+  { epoch: 1, loss: 0.4339 },
+  { epoch: 2, loss: 0.2293 },
+  { epoch: 3, loss: 0.1776 },
+  { epoch: 4, loss: 0.1587 },
+  { epoch: 5, loss: 0.1411 },
+  { epoch: 6, loss: 0.1280 },
+  { epoch: 7, loss: 0.1182 },
+  { epoch: 8, loss: 0.1144 },
+  { epoch: 9, loss: 0.1019 },
+  { epoch: 10, loss: 0.0993 },
 ];
 
+/* ── Sourced from met.json → confusion_matrix ── */
 const confMatrix = [
-  [94, 2, 1, 2, 1],
-  [1, 91, 3, 3, 2],
-  [2, 4, 88, 4, 2],
-  [1, 2, 3, 93, 1],
-  [2, 1, 2, 2, 93],
+  [174, 2, 0, 4, 4],
+  [2, 568, 3, 7, 14],
+  [0, 0, 151, 0, 2],
+  [0, 4, 1, 1122, 8],
+  [1, 18, 2, 8, 305],
 ];
-const labels = ['FOR', 'WAT', 'URB', 'AGR', 'BAR'];
+const labels = ['AGR', 'BAR', 'FOR', 'URB', 'WAT'];
 
 /* ─── Radial Chart ───────────────────────────────── */
 function RadialReliabilityChart({ target = 92.4 }: { target?: number }) {
@@ -95,7 +103,8 @@ function ConfusionMatrix() {
   const ref = useRef<HTMLDivElement>(null);
   const inView = useInView(ref, { once: true });
 
-  const maxVal = 100;
+  // Dynamic max so colour intensity scales correctly with real data
+  const maxVal = Math.max(...confMatrix.flat());
 
   return (
     <div ref={ref}>
@@ -170,7 +179,7 @@ export function AnalyticsDashboard() {
         {/* Section header */}
         <div className="flex items-center gap-3 mb-8">
           <div className="w-2 h-px bg-accent-blue/60" />
-      
+
           <div className="flex-1 h-px bg-gradient-to-r from-accent-blue/20 to-transparent" />
         </div>
 
@@ -189,15 +198,17 @@ export function AnalyticsDashboard() {
             className="p-8 rounded border border-accent-cyan/15 flex flex-col items-center justify-center"
             style={{ background: 'rgba(14,22,40,0.7)', backdropFilter: 'blur(8px)' }}
           >
-            <RadialReliabilityChart target={92.4} />
+            {/* target from met.json → model_confidence.value */}
+            <RadialReliabilityChart target={96.7} />
 
             {/* Mini stats */}
             <div className="mt-6 grid grid-cols-2 gap-3 w-full">
+              {/* values from met.json → metrics */}
               {[
-                { label: 'PRECISION', value: '94.1%', color: 'text-accent-cyan' },
-                { label: 'RECALL', value: '91.8%', color: 'text-accent-green' },
-                { label: 'F1 SCORE', value: '92.9%', color: 'text-accent-blue' },
-                { label: 'mAP', value: '89.3%', color: 'text-accent-orange' },
+                { label: 'PRECISION', value: '96.7%', color: 'text-accent-cyan' },
+                { label: 'RECALL', value: '96.7%', color: 'text-accent-green' },
+                { label: 'F1 SCORE', value: '96.7%', color: 'text-accent-blue' },
+                { label: 'mAP', value: '96.7%', color: 'text-accent-orange' },
               ].map(({ label, value, color }) => (
                 <div key={label} className="p-2 rounded border border-accent-cyan/8 bg-accent-cyan/2">
                   <div className="terminal-text text-[10px] text-text-secondary/40 tracking-widest">{label}</div>
@@ -260,7 +271,7 @@ export function AnalyticsDashboard() {
         {/* Bottom row: confusion matrix + key metrics */}
         <div className="grid grid-cols-1 lg:grid-cols-[auto_1fr] gap-6">
           {/* Confusion matrix */}
-          <motion.div
+          {/* <motion.div
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
@@ -268,7 +279,7 @@ export function AnalyticsDashboard() {
             style={{ background: 'rgba(14,22,40,0.7)', backdropFilter: 'blur(8px)' }}
           >
             <ConfusionMatrix />
-          </motion.div>
+          </motion.div> */}
 
           {/* System performance metrics */}
           <motion.div
@@ -282,11 +293,12 @@ export function AnalyticsDashboard() {
               System Performance
             </h3>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              {/* values from met.json → system_performance */}
               {[
-                { label: 'Avg Accuracy', value: '95.2%', color: 'text-accent-cyan' },
-                { label: 'Avg Coverage', value: '89.5%', color: 'text-accent-blue' },
-                { label: 'Avg Speed', value: '38ms', color: 'text-accent-green' },
-                { label: 'Total Processed', value: '14,827', color: 'text-accent-orange' },
+                { label: 'Avg Accuracy', value: '96.7%', color: 'text-accent-cyan' },
+                { label: 'Avg Coverage', value: '100%', color: 'text-accent-blue' },
+                { label: 'Avg Speed', value: '0.2ms', color: 'text-accent-green' },
+                { label: 'Total Processed', value: '12,000', color: 'text-accent-orange' },
               ].map((m) => (
                 <div key={m.label}
                   className="p-4 rounded border border-accent-cyan/10 bg-accent-cyan/3 hover:border-accent-cyan/25 transition-colors"
@@ -298,7 +310,7 @@ export function AnalyticsDashboard() {
             </div>
 
             {/* Terrain per-class bars */}
-           
+
           </motion.div>
         </div>
       </div>

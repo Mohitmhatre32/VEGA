@@ -1,0 +1,107 @@
+
+{
+    "model_confidence": {
+        "value": 96.7,
+        "label": "Reliability"
+    },
+    "metrics": {
+        "precision": 96.7,
+        "recall": 96.7,
+        "f1_score": 96.7,
+        "mAP": 96.7
+    },
+    "training_curve": [
+        {
+            "epoch": 1,
+            "loss": 0.4339
+        },
+        {
+            "epoch": 2,
+            "loss": 0.2293
+        },
+        {
+            "epoch": 3,
+            "loss": 0.1776
+        },
+        {
+            "epoch": 4,
+            "loss": 0.1587
+        },
+        {
+            "epoch": 5,
+            "loss": 0.1411
+        },
+        {
+            "epoch": 6,
+            "loss": 0.128
+        },
+        {
+            "epoch": 7,
+            "loss": 0.1182
+        },
+        {
+            "epoch": 8,
+            "loss": 0.1144
+        },
+        {
+            "epoch": 9,
+            "loss": 0.1019
+        },
+        {
+            "epoch": 10,
+            "loss": 0.0993
+        }
+    ],
+    "confusion_matrix": {
+        "labels": [
+            "AGR",
+            "BAR",
+            "FOR",
+            "URB",
+            "WAT"
+        ],
+        "matrix": [
+            [
+                174,
+                2,
+                0,
+                4,
+                4
+            ],
+            [
+                2,
+                568,
+                3,
+                7,
+                14
+            ],
+            [
+                0,
+                0,
+                151,
+                0,
+                2
+            ],
+            [
+                0,
+                4,
+                1,
+                1122,
+                8
+            ],
+            [
+                1,
+                18,
+                2,
+                8,
+                305
+            ]
+        ]
+    },
+    "system_performance": {
+        "avg_accuracy": 96.7,
+        "avg_coverage": 100,
+        "avg_speed_ms": 0.2,
+        "total_processed": 12000
+    }
+}
