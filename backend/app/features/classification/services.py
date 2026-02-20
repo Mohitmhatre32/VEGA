@@ -4,6 +4,7 @@ from PIL import Image
 from app.core.config import settings
 from PIL import Image, ImageEnhance
 import os
+import base64
 
 class ClassificationService:
     @staticmethod
