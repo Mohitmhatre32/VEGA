@@ -118,6 +118,41 @@ def rgb_to_hsv(arr):
     """
     # Normalize to [0,1]
     arr = arr.astype(np.float32) / 255.0
+    _load_model_if_needed()
+
+    if isinstance(image_input, str):
+        img = Image.open(image_input).convert('RGB')
+    else:
+        img = Image.open(io.BytesIO(image_input)).convert('RGB')
+
+    input_tensor = _preprocess(img).unsqueeze(0).to(_device)
+
+    # Predict
+    with torch.no_grad():
+        output = _model(input_tensor)
+        probabilities = torch.nn.functional.softmax(output, dim=1)
+        # Get top prediction (dim=1 for class dimension)
+        confidence, predicted_idx = torch.max(probabilities, 1)
+
+    predicted_label = _class_names[predicted_idx.item()]
+    
+    # Get all probabilities
+    probs_list = probabilities[0].tolist()
+    class_probs = {name: round(prob * 100, 2) for name, prob in zip(_class_names, probs_list)}
+
+    return {
+        "class": predicted_label,
+        "confidence": round(confidence.item() * 100, 2),
+        "probabilities": class_probs
+    }
+
+# def generate_heatmap(input_image_path, output_image_path, patch_size=32):
+#     """
+#     High-Resolution Heatmap Generator.
+#     - Saves individual patches for verification.
+#     - Generates a colored overlay.
+#     """
+#     _load_model_if_needed()
     
     r, g, b = arr[:,:,0], arr[:,:,1], arr[:,:,2]
     maxc = np.max(arr, axis=-1)
