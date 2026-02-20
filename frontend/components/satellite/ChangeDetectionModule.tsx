@@ -1,27 +1,170 @@
 'use client';
 
-import { motion } from 'framer-motion';
+import { useState, useRef } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
-  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
-} from 'recharts';
-import { changeDetectionData } from '@/lib/mockData';
-import { TrendingUp, TrendingDown } from 'lucide-react';
+  Upload, FileImage, X, AlertTriangle,
+  Loader2, CheckCircle2, Calendar,
+} from 'lucide-react';
+import { predictChangeDetection, type ChangeDetectionResult } from '@/lib/classificationApi';
+import { ChangeDetectionResultCard } from './ChangeDetectionResultCard';
 
-const TRENDS = [
-  { label: 'Urban Growth', change: '+1047 km²', percent: '+58.2%', color: '#FF2E63', rising: true },
-  { label: 'Agriculture Change', change: '+1034 km²', percent: '+24.6%', color: '#FFB800', rising: true },
-  { label: 'Forest Loss', change: '-609 km²', percent: '-17.4%', color: '#00FF88', rising: false },
-  { label: 'Water Level', change: '+306 km²', percent: '+32.2%', color: '#00F5FF', rising: true },
+// ── Types ──────────────────────────────────────────────────────────────────────
+type UploadState = 'idle' | 'uploading' | 'processing' | 'done' | 'error';
+
+interface Slot {
+  label: string;      // "YEAR 1" | "YEAR 2"
+  subLabel: string;   // "Before" | "After"
+  accentColor: string;
+}
+
+const SLOTS: Slot[] = [
+  { label: 'YEAR 1', subLabel: 'Before / Baseline', accentColor: '#0099FF' },
+  { label: 'YEAR 2', subLabel: 'After / Comparison', accentColor: '#FFB800' },
 ];
 
+// ── File slot picker sub-component ────────────────────────────────────────────
+interface FileSlotProps extends Slot {
+  file: File | null;
+  onFile: (f: File) => void;
+  onClear: () => void;
+  disabled: boolean;
+}
+
+function FileSlot({ label, subLabel, accentColor, file, onFile, onClear, disabled }: FileSlotProps) {
+  const [drag, setDrag] = useState(false);
+  const ref = useRef<HTMLInputElement>(null);
+
+  const handleDrag = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDrag(e.type === 'dragenter' || e.type === 'dragover');
+  };
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setDrag(false);
+    const f = e.dataTransfer.files[0];
+    if (f) onFile(f);
+  };
+
+  return (
+    <div>
+      {/* Slot label */}
+      <div className="flex items-center gap-2 mb-2">
+        <Calendar className="w-3.5 h-3.5" style={{ color: accentColor }} />
+        <span className="terminal-text text-xs tracking-widest font-bold" style={{ color: accentColor }}>
+          {label}
+        </span>
+        <span className="terminal-text text-[10px] text-text-secondary/40 tracking-wider">{subLabel}</span>
+      </div>
+
+      {file ? (
+        /* File staged */
+        <div
+          className="flex items-center gap-3 px-4 py-3 rounded border"
+          style={{ background: `${accentColor}08`, borderColor: `${accentColor}30` }}
+        >
+          <FileImage className="w-4 h-4 flex-shrink-0" style={{ color: accentColor }} />
+          <span className="terminal-text text-xs text-text-secondary truncate flex-1">{file.name}</span>
+          <span className="terminal-text text-[10px] text-text-secondary/30 flex-shrink-0">
+            {(file.size / 1024 / 1024).toFixed(1)} MB
+          </span>
+          {!disabled && (
+            <button onClick={onClear} className="text-text-secondary/30 hover:text-red-400 transition-colors">
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
+      ) : (
+        /* Drop zone */
+        <motion.div
+          animate={{
+            borderColor: drag ? accentColor : `${accentColor}40`,
+            background: drag ? `${accentColor}08` : 'rgba(14,22,40,0.5)',
+          }}
+          onDragEnter={handleDrag}
+          onDragLeave={handleDrag}
+          onDragOver={handleDrag}
+          onDrop={handleDrop}
+          onClick={() => !disabled && ref.current?.click()}
+          className={`relative p-8 rounded border-2 border-dashed flex flex-col items-center gap-3 text-center ${disabled ? 'opacity-40' : 'cursor-pointer'}`}
+        >
+          <div className="p-3 rounded border" style={{ borderColor: `${accentColor}30`, background: `${accentColor}08` }}>
+            <Upload className="w-5 h-5" style={{ color: accentColor }} />
+          </div>
+          <p className="terminal-text text-xs text-text-secondary/60 tracking-wider">
+            {drag ? 'RELEASE TO SET' : 'DROP IMAGE OR CLICK'}
+          </p>
+
+          {/* corners */}
+          <div className="absolute top-2 left-2 w-3 h-3 border-t border-l" style={{ borderColor: `${accentColor}50` }} />
+          <div className="absolute top-2 right-2 w-3 h-3 border-t border-r" style={{ borderColor: `${accentColor}50` }} />
+          <div className="absolute bottom-2 left-2 w-3 h-3 border-b border-l" style={{ borderColor: `${accentColor}50` }} />
+          <div className="absolute bottom-2 right-2 w-3 h-3 border-b border-r" style={{ borderColor: `${accentColor}50` }} />
+
+          <input
+            ref={ref}
+            type="file"
+            accept=".tif,.tiff,.png,.jpg,.jpeg"
+            className="hidden"
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) onFile(f);
+              e.target.value = '';
+            }}
+          />
+        </motion.div>
+      )}
+    </div>
+  );
+}
+
+// ── Main component ─────────────────────────────────────────────────────────────
 export function ChangeDetectionModule() {
+  const [file1, setFile1] = useState<File | null>(null);
+  const [file2, setFile2] = useState<File | null>(null);
+  const [uploadState, setUploadState] = useState<UploadState>('idle');
+  const [result, setResult] = useState<ChangeDetectionResult | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const isLoading = uploadState === 'uploading' || uploadState === 'processing';
+  const canSubmit = !!file1 && !!file2 && !isLoading;
+
+  const handleClear = () => {
+    setFile1(null);
+    setFile2(null);
+    setResult(null);
+    setError(null);
+    setUploadState('idle');
+  };
+
+  const runDetection = async () => {
+    if (!file1 || !file2) return;
+    try {
+      setError(null);
+      setResult(null);
+      setUploadState('uploading');
+      await new Promise((r) => setTimeout(r, 400));
+      setUploadState('processing');
+
+      const data = await predictChangeDetection(file1, file2);
+
+      setResult(data);
+      setUploadState('done');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Unknown error');
+      setUploadState('error');
+    }
+  };
+
   return (
     <section className="relative py-16 px-4">
       <div className="absolute inset-0 pointer-events-none">
         <div className="absolute bottom-10 left-10 w-80 h-80 bg-accent-orange/3 rounded-full blur-[100px]" />
       </div>
 
-      <div className="relative z-10 max-w-6xl mx-auto">
+      <div className="relative z-10 max-w-4xl mx-auto">
+
         {/* Section header */}
         <div className="flex items-center gap-3 mb-8">
           <div className="w-2 h-px bg-accent-orange/60" />
@@ -35,114 +178,114 @@ export function ChangeDetectionModule() {
           TERRAIN CHANGE DETECTION
         </h2>
         <p className="terminal-text text-xs text-text-secondary/50 tracking-wider mb-8">
-          Year-over-year terrain transformation analysis · 2019–2023
+          Upload Year 1 and Year 2 satellite images — the AI calculates terrain shift, area change, and trend direction
         </p>
 
-        {/* Chart panel */}
-        <motion.div
-          initial={{ opacity: 0, y: 24 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          className="p-6 rounded border border-accent-cyan/15 mb-6"
+        {/* ── Two-slot upload panel ── */}
+        <div
+          className="p-6 rounded border border-accent-orange/20 mb-5"
           style={{ background: 'rgba(14,22,40,0.7)', backdropFilter: 'blur(8px)' }}
         >
-          {/* Monitor header strip */}
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2">
-              <div className="w-2 h-2 rounded-full bg-accent-red/70" />
-              <div className="w-2 h-2 rounded-full bg-accent-orange/70" />
-              <div className="w-2 h-2 rounded-full bg-accent-green/70" />
-            </div>
-            <span className="terminal-text text-[10px] text-text-secondary/30 tracking-widest">
-              TEMPORAL · STACKED AREA · 2019–2023
-            </span>
-            <div className="pulse-dot" style={{ width: 6, height: 6 }} />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-6">
+            <FileSlot
+              {...SLOTS[0]}
+              file={file1}
+              onFile={setFile1}
+              onClear={() => { setFile1(null); setResult(null); setError(null); setUploadState('idle'); }}
+              disabled={isLoading}
+            />
+            <FileSlot
+              {...SLOTS[1]}
+              file={file2}
+              onFile={setFile2}
+              onClear={() => { setFile2(null); setResult(null); setError(null); setUploadState('idle'); }}
+              disabled={isLoading}
+            />
           </div>
 
-          <ResponsiveContainer width="100%" height={360}>
-            <AreaChart data={changeDetectionData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-              <defs>
-                {[
-                  { id: 'urban', color: '#FF2E63' },
-                  { id: 'agri', color: '#FFB800' },
-                  { id: 'forest', color: '#00FF88' },
-                  { id: 'water', color: '#00F5FF' },
-                  { id: 'barren', color: '#8B6914' },
-                ].map(({ id, color }) => (
-                  <linearGradient key={id} id={`clr-${id}`} x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor={color} stopOpacity={0.6} />
-                    <stop offset="95%" stopColor={color} stopOpacity={0.05} />
-                  </linearGradient>
-                ))}
-              </defs>
+          {/* Status hint */}
+          {!file1 && !file2 && (
+            <p className="terminal-text text-[10px] text-text-secondary/30 tracking-widest text-center mb-4">
+              BOTH SLOTS MUST BE FILLED TO RUN ANALYSIS
+            </p>
+          )}
 
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,245,255,0.06)" />
-              <XAxis
-                dataKey="year"
-                stroke="rgba(148,163,184,0.3)"
-                tick={{ fontFamily: 'JetBrains Mono', fontSize: 10, fill: '#94A3B8' }}
-              />
-              <YAxis
-                stroke="rgba(148,163,184,0.3)"
-                tick={{ fontFamily: 'JetBrains Mono', fontSize: 10, fill: '#94A3B8' }}
-                tickFormatter={(v) => `${(v / 1000).toFixed(1)}k`}
-              />
-              <Tooltip
-                contentStyle={{
-                  background: '#0B0F1A',
-                  border: '1px solid rgba(0,245,255,0.3)',
-                  borderRadius: '4px',
-                  fontFamily: 'JetBrains Mono',
-                  fontSize: 11,
-                  color: '#E6F1FF',
-                }}
-                formatter={(v) => [`${Number(v).toLocaleString()} km²`]}
-              />
-              <Legend
-                wrapperStyle={{ paddingTop: 16, fontFamily: 'JetBrains Mono', fontSize: 10 }}
-                formatter={(value) => <span style={{ color: '#94A3B8', letterSpacing: '0.05em' }}>{value.toUpperCase()}</span>}
-              />
-              <Area type="monotone" dataKey="urbanArea" stackId="1" stroke="#FF2E63" fill="url(#clr-urban)" name="Urban" />
-              <Area type="monotone" dataKey="agricultureArea" stackId="1" stroke="#FFB800" fill="url(#clr-agri)" name="Agriculture" />
-              <Area type="monotone" dataKey="forestArea" stackId="1" stroke="#00FF88" fill="url(#clr-forest)" name="Forest" />
-              <Area type="monotone" dataKey="waterArea" stackId="1" stroke="#00F5FF" fill="url(#clr-water)" name="Water" />
-              <Area type="monotone" dataKey="barrenArea" stackId="1" stroke="#8B6914" fill="url(#clr-barren)" name="Barren" />
-            </AreaChart>
-          </ResponsiveContainer>
-        </motion.div>
-
-        {/* Trend indicator cards */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {TRENDS.map(({ label, change, percent, color, rising }, i) => (
-            <motion.div
-              key={i}
-              initial={{ opacity: 0, y: 16 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: i * 0.08 }}
-              whileHover={{ y: -4, boxShadow: `0 0 16px ${color}25` }}
-              className="p-4 rounded border transition-all"
+          {/* Action row */}
+          <div className="flex gap-3">
+            <motion.button
+              whileHover={canSubmit ? { scale: 1.01 } : {}}
+              whileTap={canSubmit ? { scale: 0.99 } : {}}
+              onClick={runDetection}
+              disabled={!canSubmit}
+              className="flex-1 py-3 rounded border transition-all"
               style={{
-                background: 'rgba(14,22,40,0.6)',
-                borderColor: `${color}25`,
-                backdropFilter: 'blur(8px)',
+                borderColor: canSubmit ? 'rgba(255,184,0,0.55)' : 'rgba(255,184,0,0.15)',
+                background: canSubmit ? 'rgba(255,184,0,0.08)' : 'rgba(255,184,0,0.02)',
+                color: canSubmit ? 'rgba(255,184,0,0.9)' : 'rgba(255,184,0,0.3)',
+                boxShadow: canSubmit ? '0 0 16px rgba(255,184,0,0.07)' : 'none',
               }}
             >
-              <div className="flex items-center justify-between mb-2">
-                <span className="terminal-text text-[10px] text-text-secondary/50 tracking-widest uppercase">
-                  {label}
-                </span>
-                {rising
-                  ? <TrendingUp className="w-3.5 h-3.5" style={{ color }} />
-                  : <TrendingDown className="w-3.5 h-3.5" style={{ color }} />}
+              <div className="flex items-center justify-center gap-2">
+                {isLoading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span className="terminal-text text-xs tracking-widest">
+                      {uploadState === 'uploading' ? 'UPLOADING…' : 'ANALYZING CHANGE…'}
+                    </span>
+                  </>
+                ) : uploadState === 'done' ? (
+                  <>
+                    <CheckCircle2 className="w-4 h-4" />
+                    <span className="terminal-text text-xs tracking-widest">RE-ANALYZE</span>
+                  </>
+                ) : (
+                  <>
+                    <Upload className="w-4 h-4" />
+                    <span className="terminal-text text-xs tracking-widest">
+                      {!file1 || !file2 ? 'SELECT BOTH IMAGES FIRST' : 'RUN CHANGE DETECTION'}
+                    </span>
+                  </>
+                )}
               </div>
-              <div className="terminal-text text-xl font-bold mb-0.5" style={{ color }}>
-                {change}
-              </div>
-              <div className="terminal-text text-xs text-text-secondary/40">{percent} since 2019</div>
-            </motion.div>
-          ))}
+            </motion.button>
+
+            {(file1 || file2 || result) && !isLoading && (
+              <button
+                onClick={handleClear}
+                className="px-4 py-3 rounded border border-text-secondary/15 text-text-secondary/40 hover:text-red-400 hover:border-red-500/30 transition-all terminal-text text-[10px] tracking-widest"
+              >
+                CLEAR
+              </button>
+            )}
+          </div>
         </div>
+
+        {/* ── Error banner ── */}
+        <AnimatePresence>
+          {error && (
+            <motion.div
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0 }}
+              className="flex items-start gap-3 px-4 py-3 rounded border border-red-500/30 mb-5"
+              style={{ background: 'rgba(255,46,99,0.07)' }}
+            >
+              <AlertTriangle className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="terminal-text text-[10px] text-red-400 tracking-widest uppercase mb-0.5">Detection Failed</p>
+                <p className="terminal-text text-xs text-red-400/70">{error}</p>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* ── Result card ── */}
+        <AnimatePresence>
+          {result && uploadState === 'done' && (
+            <ChangeDetectionResultCard result={result} />
+          )}
+        </AnimatePresence>
+
       </div>
     </section>
   );

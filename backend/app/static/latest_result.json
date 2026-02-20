@@ -1,11 +1,11 @@
 {
     "class": "Water Body",
-    "confidence": 100.0,
+    "confidence": 97.92,
     "probabilities": {
-        "Agricultural Land": 0.0,
+        "Agricultural Land": 0.09,
         "Barren Land": 0.0,
         "Forest": 0.0,
-        "Urban Area": 0.0,
-        "Water Body": 100.0
+        "Urban Area": 1.99,
+        "Water Body": 97.92
     }
 }
