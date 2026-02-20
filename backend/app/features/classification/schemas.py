@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Dict, List, Optional
 
 class PredictionResponse(BaseModel):
@@ -19,3 +19,23 @@ class BatchPredictionResponse(BaseModel):
 class ChangeDetectionResponse(BaseModel):
     area_difference_percentage: Dict # Fixed: Specified types
     visualization_overlay_url: Optional = None # Fixed: Added
+
+
+# ==========================================
+# Map Analysis (Full Grid) Schemas
+# ==========================================
+class GridPatch(BaseModel):
+    x: int
+    y: int
+    terrain_class: str = Field(alias="class", serialization_alias="class")
+    confidence: float
+
+    model_config = {"populate_by_name": True}
+
+
+class MapAnalysisResponse(BaseModel):
+    filename: str
+    image_width: int
+    image_height: int
+    patch_size: int
+    grid: List[GridPatch]
