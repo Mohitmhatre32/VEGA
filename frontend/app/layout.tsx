@@ -12,7 +12,7 @@ export const viewport: Viewport = {
 }
 
 export const metadata: Metadata = {
-  title: 'Satellite Terrain Dashboard | AI-Powered Classification',
+  title: 'TeraSat',
   description: 'Advanced satellite imagery processing with real-time terrain classification and analytics',
   generator: 'v0.app',
   icons: {

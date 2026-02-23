@@ -47,7 +47,7 @@ export default function DashboardPage() {
                     style={{ background: 'radial-gradient(ellipse 60% 40% at 80% 80%, rgba(0,245,255,0.03) 0%, transparent 70%)' }} />
             </div>
 
-            <Navbar />
+            {/* <Navbar /> */}
 
             {/* Dashboard starts directly at upload — no hero, no features */}
             <div className="pt-16">
