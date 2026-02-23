@@ -180,6 +180,38 @@ class ClassificationService:
         return base64.b64encode(buffered.getvalue()).decode('utf-8')
     
     @staticmethod
+    def analyze_map(image_bytes: bytes, filename: str, patch_size: int = 64) -> dict:
+        """
+        Full map analysis triggered by POST /classification/analyze-map.
+        """
+        try:
+            import sys
+            current_dir = os.path.dirname(os.path.abspath(__file__))
+            backend_root = os.path.abspath(os.path.join(current_dir, "../../../"))
+            if backend_root not in sys.path:
+                sys.path.append(backend_root)
+                
+            from core import ai_engine
+            
+            # 1. Save temp image for the core analyzer (which expects a path)
+            import tempfile
+            with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as tmp:
+                tmp.write(image_bytes)
+                tmp_path = tmp.name
+                
+            try:
+                result = ai_engine.get_image_analysis_data(tmp_path, patch_size=patch_size)
+                result["filename"] = filename
+                return result
+            finally:
+                if os.path.exists(tmp_path):
+                    os.remove(tmp_path)
+                    
+        except Exception as e:
+            print(f"Error in analyze_map: {e}")
+            raise e
+
+    @staticmethod
     def get_model_leaderboard() -> list:
         """
         Returns the performance metrics for available models (PDF Page 9).

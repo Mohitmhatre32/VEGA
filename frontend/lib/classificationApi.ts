@@ -142,3 +142,50 @@ export async function predictChangeDetection(
 
     return res.json() as Promise<ChangeDetectionResult>;
 }
+
+// ─── Map / Grid Analysis ──────────────────────────────────────────────────────
+
+/** One 64×64 patch cell returned by POST /classification/analyze-map */
+export interface GridPatch {
+    x: number;
+    y: number;
+    class: string;      // e.g. "Agricultural Land"
+    confidence: number; // 0–100
+}
+
+/** Full response from POST /classification/analyze-map */
+export interface MapAnalysisResult {
+    filename: string;
+    image_width: number;
+    image_height: number;
+    patch_size: number;
+    grid: GridPatch[];
+}
+
+/**
+ * Upload a full satellite image and get the complete patch-grid JSON.
+ * This drives the AI terrain-colour overlay in ClassificationVisualization.
+ */
+export async function analyzeMap(
+    file: File,
+    patchSize = 64,
+): Promise<MapAnalysisResult> {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const res = await fetch(
+        `${API_BASE}/classification/analyze-map?patch_size=${patchSize}`,
+        { method: 'POST', body: formData },
+    );
+
+    if (!res.ok) {
+        let detail = `Server error ${res.status}`;
+        try {
+            const json = await res.json();
+            if (json?.detail) detail = json.detail;
+        } catch { /* ignore */ }
+        throw new Error(detail);
+    }
+
+    return res.json() as Promise<MapAnalysisResult>;
+}

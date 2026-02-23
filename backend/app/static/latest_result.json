@@ -1,11 +1,11 @@
 {
     "class": "Agricultural Land",
-    "confidence": 99.47,
+    "confidence": 57.63,
     "probabilities": {
-        "Agricultural Land": 99.47,
-        "Barren Land": 0.12,
+        "Agricultural Land": 57.63,
+        "Barren Land": 1.12,
         "Forest": 0.0,
-        "Urban Area": 0.4,
-        "Water Body": 0.01
+        "Urban Area": 35.44,
+        "Water Body": 5.81
     }
 }

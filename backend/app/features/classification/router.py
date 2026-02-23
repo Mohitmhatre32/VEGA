@@ -68,6 +68,20 @@ async def augment_preview(file: UploadFile = File(...)):
         "images": augments
     }
 
+@router.post("/analyze-map")
+async def analyze_map(
+    file: UploadFile = File(...),
+    patch_size: int = 64
+):
+    """
+    Full satellite image grid analysis.
+    Returns the same JSON as test_run.py:
+    { filename, image_width, image_height, patch_size, grid: [{x, y, class, confidence}] }
+    """
+    contents = await file.read()
+    result = ClassificationService.analyze_map(contents, file.filename, patch_size)
+    return result
+
 @router.get("/leaderboard")
 async def get_leaderboard():
     """

@@ -21,7 +21,8 @@ _class_names = None
 _device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 _preprocess = transforms.Compose([
-    transforms.Resize((224, 224)),
+    transforms.Resize(256),
+    transforms.CenterCrop(224),
     transforms.ToTensor(),
     transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
 ])
@@ -96,22 +97,69 @@ def get_heuristic_override(patch_img):
     return None
 
 # ==========================================
-# 4. PUBLIC API
+# 4. UNIFIED INFERENCE ENGINE
+# ==========================================
+def _internal_inference_engine(img_patch):
+    """
+    Unified engine: Heuristics + AI + Sanity Checks.
+    This ensures consistency between single-patch and full-map analysis.
+    """
+    _load_model_if_needed()
+
+    # ──── Layer 1: Heuristic Physical Overrides ────
+    override = get_heuristic_override(img_patch)
+    if override:
+        label = override
+        conf_val = 100.0
+        # Fill prob dict for consistency (map Shadow to Barren for probabilities if needed)
+        prob_dict = {name: 0.0 for name in _class_names}
+        if label in prob_dict:
+            prob_dict[label] = 100.0
+        return label, conf_val, prob_dict
+
+    # ──── Layer 2: AI Vision Prediction ────
+    # img_patch is a PIL image
+    input_tensor = _preprocess(img_patch).unsqueeze(0).to(_device)
+    
+    with torch.no_grad():
+        output = _model(input_tensor)
+        probs = torch.nn.functional.softmax(output, dim=1)[0]
+        conf, idx = torch.max(probs, 0)
+
+    label = _class_names[idx.item()]
+    conf_val = round(conf.item() * 100, 2)
+    prob_dict = {name: round(p.item() * 100, 2) for name, p in zip(_class_names, probs)}
+
+    # ──── Layer 3: Sanity Check (Coastal Protection) ────
+    if label == "Water Body":
+        arr = np.array(img_patch)
+        # If mean(Red) > mean(Blue), it's likely sand/coastline, not deep water
+        if np.mean(arr[:, :, 0]) > np.mean(arr[:, :, 2]):
+            label = "Barren Land"
+            # Update probabilities to reflect the correction
+            prob_dict["Barren Land"] = prob_dict["Water Body"]
+            prob_dict["Water Body"] = 0.0
+            conf_val = prob_dict["Barren Land"]
+
+    return label, conf_val, prob_dict
+
+# ==========================================
+# 5. PUBLIC API
 # ==========================================
 def analyze_single_image(image_path, patch_size=64):
+    """
+    Analyzes a full map by slicing it into patches.
+    """
     with gpu_semaphore:
-        _load_model_if_needed()
-        
         img = Image.open(image_path).convert("RGB")
         width, height = img.size
         
-        # Structure matching Frontend requirements
-        analysis_results = {
+        results = {
             "filename": os.path.basename(image_path),
             "image_width": width,
             "image_height": height,
             "patch_size": patch_size,
-            "grid": [] # List of patches
+            "grid": []
         }
 
         for y in range(0, height, patch_size):
@@ -119,80 +167,38 @@ def analyze_single_image(image_path, patch_size=64):
                 box = (x, y, x + patch_size, y + patch_size)
                 patch = img.crop(box)
                 
-                # 1. MATH OVERRIDE
-                override = get_heuristic_override(patch)
+                label, conf, _ = _internal_inference_engine(patch)
                 
-                final_label = ""
-                final_conf = 0.0
-
-                if override:
-                    final_label = override
-                    final_conf = 100.0
-                else:
-                    # 2. AI PREDICTION
-                    input_tensor = _preprocess(patch).unsqueeze(0).to(_device)
-                    with torch.no_grad():
-                        output = _model(input_tensor)
-                        probabilities = torch.nn.functional.softmax(output, dim=1)
-                        confidence, predicted_idx = torch.max(probabilities, 1)
-                        
-                        # Get label
-                        ai_label = _class_names[predicted_idx.item()]
-                        
-                        # 3. SANITY CHECK (Prevent Sand -> Water)
-                        if ai_label == "Water Body":
-                            # If AI says Water, but it's Red/Yellow (Sand), force Barren
-                            arr = np.array(patch)
-                            if np.mean(arr[:,:,0]) > np.mean(arr[:,:,2]): 
-                                final_label = "Barren Land"
-                            else:
-                                final_label = ai_label
-                        else:
-                            final_label = ai_label
-                            
-                        final_conf = round(confidence.item() * 100, 2)
-
-                analysis_results['grid'].append({
+                results['grid'].append({
                     "x": x, "y": y,
-                    "class": final_label,
-                    "confidence": final_conf
+                    "class": label,
+                    "confidence": conf
                 })
 
-        return analysis_results
+        return results
 
 def predict_patch(image_input):
     """
-    Predicts a single satellite patch.
-    Accepts either a file path or raw image bytes.
+    Predicts a single image patch (bytes or path).
     """
-    _load_model_if_needed()
+    try:
+        if isinstance(image_input, str):
+            img = Image.open(image_input).convert('RGB')
+        elif hasattr(image_input, 'read'):
+            image_input.seek(0)
+            img = Image.open(io.BytesIO(image_input.read())).convert('RGB')
+        else:
+            img = Image.open(io.BytesIO(image_input)).convert('RGB')
+    except Exception as e:
+        return {"error": f"Image Load Error: {str(e)}"}
 
-    if isinstance(image_input, str):
-        img = Image.open(image_input).convert('RGB')
-    else:
-        img = Image.open(io.BytesIO(image_input)).convert('RGB')
-
-    input_tensor = _preprocess(img).unsqueeze(0).to(_device)
-
-    # Predict
-    with torch.no_grad():
-        output = _model(input_tensor)
-        probabilities = torch.nn.functional.softmax(output, dim=1)
-        # Get top prediction (dim=1 for class dimension)
-        confidence, predicted_idx = torch.max(probabilities, 1)
-
-    predicted_label = _class_names[predicted_idx.item()]
+    label, conf, probs = _internal_inference_engine(img)
     
-    # Get all probabilities
-    probs_list = probabilities[0].tolist()
-    class_probs = {name: round(prob * 100, 2) for name, prob in zip(_class_names, probs_list)}
-
     return {
-        "class": predicted_label,
-        "confidence": round(confidence.item() * 100, 2),
-        "probabilities": class_probs
+        "class": label,
+        "confidence": conf,
+        "probabilities": probs
     }
-
 
 def get_image_analysis_data(input_image_path, patch_size=64):
     return analyze_single_image(input_image_path, patch_size)

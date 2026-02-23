@@ -3,8 +3,7 @@
 import { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Upload, FileImage, CheckCircle2, Loader2, Zap, X, AlertTriangle } from 'lucide-react';
-import { predictImage, type PredictionResult } from '@/lib/classificationApi';
-import { ClassificationResultCard } from './ClassificationResultCard';
+import { analyzeMap, type MapAnalysisResult } from '@/lib/classificationApi';
 import { useImageContext } from '@/lib/ImageContext';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
@@ -18,7 +17,7 @@ interface UploadedFile {
   /** 0=uploading 1=processing 2=analyzing 3=done */
   step: StepIndex;
   error?: string;
-  result?: PredictionResult;
+  result?: MapAnalysisResult;
 }
 
 // ── Constants ──────────────────────────────────────────────────────────────────
@@ -35,10 +34,10 @@ const STEPS = [
 export function UploadPanel() {
   const [isDragActive, setIsDragActive] = useState(false);
   const [uploads, setUploads] = useState<UploadedFile[]>([]);
-  /** The most recently completed prediction to display as result card */
-  const [latestResult, setLatestResult] = useState<PredictionResult | null>(null);
+  /** The most recently completed result to show summary */
+  const [latestResult, setLatestResult] = useState<MapAnalysisResult | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const { setUploadedImageUrl } = useImageContext();
+  const { setUploadedImageUrl, setMapAnalysis } = useImageContext();
 
   // ── helpers ──
 
@@ -52,7 +51,7 @@ export function UploadPanel() {
       prev.map((u) => (u.id === id ? { ...u, error } : u))
     );
 
-  const setResult = (id: string, result: PredictionResult) =>
+  const setResult = (id: string, result: MapAnalysisResult) =>
     setUploads((prev) =>
       prev.map((u) => (u.id === id ? { ...u, result, step: 3 } : u))
     );
@@ -67,6 +66,7 @@ export function UploadPanel() {
     // ── Publish a live preview immediately (fast blob URL) ──
     const previewUrl = URL.createObjectURL(file);
     setUploadedImageUrl(previewUrl);
+    setMapAnalysis(null);
 
     try {
       // Step 0 → 1 (upload sent, waiting for server)
@@ -77,17 +77,19 @@ export function UploadPanel() {
       await new Promise((r) => setTimeout(r, 600));
       setStep(id, 2);
 
-      // ── Real API call ──
-      const result = await predictImage(file);
+      // ── Real API call for Full Map Analysis ──
+      const result = await analyzeMap(file);
 
       // Step 2 → 3 (done) — preview URL stays live in the map viewer
       setResult(id, result);
       setLatestResult(result);
+      setMapAnalysis(result); // This feeds the visualizer grid!
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Unknown error';
       setError(id, msg);
       // Clear the preview on error
       setUploadedImageUrl(null);
+      setMapAnalysis(null);
       URL.revokeObjectURL(previewUrl);
     }
   };
@@ -325,12 +327,6 @@ export function UploadPanel() {
           )}
         </AnimatePresence>
 
-        {/* ── Result Card ── */}
-        <AnimatePresence>
-          {latestResult && (
-            <ClassificationResultCard key={latestResult.filename} result={latestResult} />
-          )}
-        </AnimatePresence>
       </div>
     </section>
   );
