@@ -1,23 +1,20 @@
-from typing import List
 from fastapi import APIRouter, UploadFile, File
 from .services import ClassificationService
+from typing import List
 
 router = APIRouter(prefix="/classification", tags=["Classification"])
 
 @router.post("/predict")
 async def predict_single(file: UploadFile = File(...)):
-    """Single image prediction endpoint"""
+    """Predict top label and confidence for a patch"""
     contents = await file.read()
-    
-    # 1. Preprocess & Predict (Service handles it now)
-    result = ClassificationService.call_teammate_model(contents)
-    
-    return {
-        "filename": file.filename,
-        "prediction": result["label"],
-        "confidence": f"{result['confidence']}%",
-        "breakdown": result["probabilities"]
-    }
+    return ClassificationService.predict_single(contents)
+
+@router.post("/analyze-map")
+async def analyze_map(file: UploadFile = File(...), patch_size: int = 32):
+    """Generate the full grid JSON for the heatmap visualization"""
+    contents = await file.read()
+    return ClassificationService.analyze_full_map(contents, patch_size)
 
 @router.post("/predict-batch")
 async def predict_batch(files: List[UploadFile] = File(...)):
@@ -67,20 +64,6 @@ async def augment_preview(file: UploadFile = File(...)):
         "message": "Augmentation preview generated",
         "images": augments
     }
-
-@router.post("/analyze-map")
-async def analyze_map(
-    file: UploadFile = File(...),
-    patch_size: int = 64
-):
-    """
-    Full satellite image grid analysis.
-    Returns the same JSON as test_run.py:
-    { filename, image_width, image_height, patch_size, grid: [{x, y, class, confidence}] }
-    """
-    contents = await file.read()
-    result = ClassificationService.analyze_map(contents, file.filename, patch_size)
-    return result
 
 @router.get("/leaderboard")
 async def get_leaderboard():

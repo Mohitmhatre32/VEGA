@@ -2,14 +2,12 @@
 
 import { useState, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-<<<<<<< HEAD
-import { Upload, FileImage, CheckCircle2, Loader2, Zap, X, AlertTriangle } from 'lucide-react';
+// import { Upload, FileImage, CheckCircle2, Loader2, Zap, X, AlertTriangle } from 'lucide-react';
 import { analyzeMap, type MapAnalysisResult } from '@/lib/classificationApi';
-=======
 import { Upload, FileImage, CheckCircle2, Loader2, Zap, X, AlertTriangle, FileDown } from 'lucide-react';
 import { predictImage, type PredictionResult } from '@/lib/classificationApi';
 import { ClassificationResultCard } from './ClassificationResultCard';
->>>>>>> 26a08e6ec36686a6e8232e7b8dddda3fad68f358
+
 import { useImageContext } from '@/lib/ImageContext';
 import { generateAnalysisReport } from '@/lib/generateReport';
 
@@ -41,21 +39,21 @@ const STEPS = [
 export function UploadPanel() {
   const [isDragActive, setIsDragActive] = useState(false);
   const [uploads, setUploads] = useState<UploadedFile[]>([]);
-<<<<<<< HEAD
+
   /** The most recently completed result to show summary */
   const [latestResult, setLatestResult] = useState<MapAnalysisResult | null>(null);
-=======
+
   /** The most recently completed prediction to display as result card */
-  const [latestResult, setLatestResult] = useState<PredictionResult | null>(null);
+  // const [latestResult, setLatestResult] = useState<PredictionResult | null>(null);
   const [isExporting, setIsExporting] = useState(false);
->>>>>>> 26a08e6ec36686a6e8232e7b8dddda3fad68f358
+
   const inputRef = useRef<HTMLInputElement>(null);
   const { setUploadedImageUrl, setMapAnalysis } = useImageContext();
 
   const handleExportReport = useCallback(async () => {
     setIsExporting(true);
     try {
-      await generateAnalysisReport(uploads);
+      // await generateAnalysisReport(uploads);
     } finally {
       setIsExporting(false);
     }
@@ -79,6 +77,36 @@ export function UploadPanel() {
     );
 
   // ── core upload + predict flow ──
+
+
+  // const processFile = async (file: File) => {
+  //   setIsProcessing(true);
+  //   const previewUrl = URL.createObjectURL(file);
+  //   setUploadedImageUrl(previewUrl);
+
+  //   try {
+  //     // Execute both your engine functions simultaneously
+  //     const [prediction, analysis] = await Promise.all([
+  //       predictSingle(file),
+  //       analyzeMap(file, 64) // patch_size matches engine default
+  //     ]);
+
+  //     setSingleResult(prediction);
+  //     setMapAnalysis(analysis);
+  //   } catch (err) {
+  //     console.error("Analysis Error:", err);
+  //     setUploadedImageUrl(null);
+  //   } finally {
+  //     setIsProcessing(false);
+  //   }
+  // };
+
+  const onDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragActive(false);
+    const file = e.dataTransfer.files[0];
+    if (file) processFile(file);
+  };
 
   const processFile = async (file: File) => {
     const id = crypto.randomUUID();

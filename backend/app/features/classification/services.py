@@ -1,221 +1,105 @@
 import io
-import numpy as np
-from PIL import Image
-from app.core.config import settings
-from PIL import Image, ImageEnhance
 import os
+import sys
 import base64
+import tempfile
+from PIL import Image, ImageEnhance
+from app.core.config import settings
+
+# Path setup to find 'core'
+current_dir = os.path.dirname(os.path.abspath(__file__))
+backend_root = os.path.abspath(os.path.join(current_dir, "../../../"))
+if backend_root not in sys.path:
+    sys.path.append(backend_root)
+
+from core import ai_engine
 
 class ClassificationService:
     @staticmethod
-    def preprocess_image(image_bytes: bytes) -> np.ndarray:
-        """
-        Prepares the image for the ML model (Resize 224x224, Normalize).
-        """
-        img = Image.open(io.BytesIO(image_bytes)).convert('RGB')
-        img_resized = img.resize((settings.IMAGE_SIZE, settings.IMAGE_SIZE))
-        img_array = np.array(img_resized).astype(np.float32) / 255.0
-        
-        # (C, H, W) format for PyTorch
-        img_tensor = np.transpose(img_array, (2, 0, 1))
-        return np.expand_dims(img_tensor, axis=0)
+    def predict_single(image_bytes: bytes) -> dict:
+        """Strictly follows predict_patch logic"""
+        return ai_engine.predict_patch(image_bytes)
 
     @staticmethod
-    def call_teammate_model(image_bytes: bytes) -> dict:
-        """
-        ### TEAMMATE INTEGRATION POINT ###
-        Calls the actual ISRO model from backend/core/ai_engine.py
-        """
-        # 1. Save Input for Demo
+    def analyze_full_map(image_bytes: bytes, patch_size: int) -> dict:
+        """Strictly follows get_image_analysis_data logic"""
+        # Engine expects a file path for the full analysis loop
+        with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as tmp:
+            tmp.write(image_bytes)
+            tmp_path = tmp.name
+        
         try:
-            static_dir = os.path.join(os.getcwd(), "app/static")
-            os.makedirs(static_dir, exist_ok=True)
-            
-            with open(os.path.join(static_dir, "latest_input.png"), "wb") as f:
-                f.write(image_bytes)
-        except Exception as e:
-            print(f"Warning: Could not save demo input: {e}")
+            result = ai_engine.get_image_analysis_data(tmp_path, patch_size=patch_size)
+            return result
+        finally:
+            if os.path.exists(tmp_path):
+                os.remove(tmp_path)
 
-        # 2. Call Real Model
-        # We need to import the core engine. 
-        # Since uvicorn runs from 'backend/', 'app' is a package, and 'core' is a sibling folder.
-        # We try to import it dynamically or assume python path is set root-wise.
-        try:
-            import sys
-            # Ensure backend root is in path
-            current_dir = os.path.dirname(os.path.abspath(__file__))
-            backend_root = os.path.abspath(os.path.join(current_dir, "../../../"))
-            if backend_root not in sys.path:
-                sys.path.append(backend_root)
-                
-            from core import ai_engine
-            
-            # Predict
-            result = ai_engine.predict_patch(image_bytes)
-            
-            # 3. Save Output for Demo
-            try:
-                import json
-                with open(os.path.join(static_dir, "latest_result.json"), "w") as f:
-                    json.dump(result, f, indent=4)
-            except Exception as e:
-                print(f"Warning: Could not save demo output: {e}")
-                
-            return {
-                "label": result["class"],
-                "confidence": result["confidence"],
-                "probabilities": result["probabilities"]
-            }
-            
-        except ImportError:
-            print("CRITICAL: Could not import backend.core.ai_engine. Falling back to MOCK.")
-            # Fallback Mock (Copy of original)
-            probs = np.random.dirichlet(np.ones(5), size=1)[0]
-            class_idx = np.argmax(probs)
-            return {
-                "label": settings.CLASSES[class_idx],
-                "confidence": round(float(probs[class_idx]) * 100, 2),
-                "probabilities": {settings.CLASSES[i]: round(float(probs[i]) * 100, 2) for i in range(5)}
-            }
-    
     @staticmethod
     def process_batch(predictions: list) -> dict:
-        """
-        Aggregates multiple predictions into a batch statistical report.
-        """
         total = len(predictions)
-        counts = {cls: 0 for cls in settings.CLASSES}
-        
+        counts = {}
         for pred in predictions:
-            label = pred['label']
-            if label in counts:
-                counts[label] += 1
-            
-        return {
-            "total_processed": total,
-            "distribution": counts
-        }
+            lbl = pred.get('class', 'Unknown') # ai_engine returns 'class', not 'label'
+            counts[lbl] = counts.get(lbl, 0) + 1
+        return {"total_processed": total, "distribution": counts}
 
     @staticmethod
     def calculate_change_detection(img1_bytes: bytes, img2_bytes: bytes) -> dict:
-        """
-        Compares two images (Year 1 vs Year 2).
-        Calculates % change and Area shift (km²).
-        """
-        # 1. Process both images (Pass bytes directly now)
-        result1 = ClassificationService.call_teammate_model(img1_bytes)
-        result2 = ClassificationService.call_teammate_model(img2_bytes)
-
-        # 2. Area Calculation based on probabilities
-        stats = []
+        res1 = ai_engine.predict_patch(img1_bytes)
+        res2 = ai_engine.predict_patch(img2_bytes)
         
-        for cls in settings.CLASSES:
-            # Get probability as a proxy for area coverage %
-            pct_year1 = result1["probabilities"].get(cls, 0)
-            pct_year2 = result2["probabilities"].get(cls, 0)
+        # Simple area calculation based on probabilities
+        stats = []
+        classes = res1["probabilities"].keys()
+        
+        for cls in classes:
+            pct1 = res1["probabilities"].get(cls, 0)
+            pct2 = res2["probabilities"].get(cls, 0)
             
-            # Calculate Area in km² (PDF Page 10)
-            area_year1 = round((pct_year1 / 100) * settings.AREA_SCALE_FACTOR * (settings.IMAGE_SIZE ** 2), 2)
-            area_year2 = round((pct_year2 / 100) * settings.AREA_SCALE_FACTOR * (settings.IMAGE_SIZE ** 2), 2)
+            # 1 pixel = ~100m2 logic scaled up
+            area1 = round((pct1/100) * settings.AREA_SCALE_FACTOR * 100, 2)
+            area2 = round((pct2/100) * settings.AREA_SCALE_FACTOR * 100, 2)
             
-            # Calculate % Change (PDF Page 7)
-            diff = area_year2 - area_year1
-            pct_change = 0.0
-            if area_year1 > 0:
-                pct_change = round(((area_year2 - area_year1) / area_year1) * 100, 1)
-            
-            direction = "↑" if diff > 0 else "↓"
-            trend_type = "increasing" if diff > 0 else "decreasing"
+            diff = area2 - area1
+            trend = "increasing" if diff > 0 else "decreasing"
+            if diff == 0: trend = "stable"
             
             stats.append({
                 "class": cls,
-                "year1_area_km2": area_year1,
-                "year2_area_km2": area_year2,
-                "change_pct": f"{direction} {abs(pct_change)}%",
-                "trend": trend_type
+                "year1_area_km2": area1,
+                "year2_area_km2": area2,
+                "change_pct": f"{diff:+.1f} km²",
+                "trend": trend
             })
-
+            
         return {
-            "year1_prediction": result1["label"],
-            "year2_prediction": result2["label"],
+            "year1_prediction": res1["class"],
+            "year2_prediction": res2["class"],
             "area_stats": stats
         }
-        
+
     @staticmethod
     def generate_augmentations(image_bytes: bytes) -> dict:
-        """
-        Generates 3 augmented versions for preview. 
-        Downscales to 300x300 to ensure fast Base64 transmission.
-        """
         try:
             original = Image.open(io.BytesIO(image_bytes)).convert('RGB')
-            # Downscale for preview performance
-            original.thumbnail((300, 300)) 
-
+            original.thumbnail((300, 300))
             results = {}
-
-            # 1. Rotation
-            rotated = original.rotate(90, expand=True)
-            results['rotated'] = ClassificationService._img_to_base64(rotated)
-
-            # 2. Horizontal Flip
-            flipped = original.transpose(Image.FLIP_LEFT_RIGHT)
-            results['flipped'] = ClassificationService._img_to_base64(flipped)
-
-            # 3. Brightness
-            enhancer = ImageEnhance.Brightness(original)
-            bright = enhancer.enhance(1.5)
-            results['brightness'] = ClassificationService._img_to_base64(bright)
-
+            results['rotated'] = ClassificationService._img_to_base64(original.rotate(90))
+            results['flipped'] = ClassificationService._img_to_base64(original.transpose(Image.FLIP_LEFT_RIGHT))
+            results['brightness'] = ClassificationService._img_to_base64(ImageEnhance.Brightness(original).enhance(1.5))
             return results
-        except Exception as e:
-            print(f"Augmentation Error: {e}")
+        except Exception:
             return {}
 
     @staticmethod
     def _img_to_base64(img: Image.Image) -> str:
         buffered = io.BytesIO()
-        # Using PNG for better Base64 compatibility
         img.save(buffered, format="PNG") 
         return base64.b64encode(buffered.getvalue()).decode('utf-8')
-    
-    @staticmethod
-    def analyze_map(image_bytes: bytes, filename: str, patch_size: int = 64) -> dict:
-        """
-        Full map analysis triggered by POST /classification/analyze-map.
-        """
-        try:
-            import sys
-            current_dir = os.path.dirname(os.path.abspath(__file__))
-            backend_root = os.path.abspath(os.path.join(current_dir, "../../../"))
-            if backend_root not in sys.path:
-                sys.path.append(backend_root)
-                
-            from core import ai_engine
-            
-            # 1. Save temp image for the core analyzer (which expects a path)
-            import tempfile
-            with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as tmp:
-                tmp.write(image_bytes)
-                tmp_path = tmp.name
-                
-            try:
-                result = ai_engine.get_image_analysis_data(tmp_path, patch_size=patch_size)
-                result["filename"] = filename
-                return result
-            finally:
-                if os.path.exists(tmp_path):
-                    os.remove(tmp_path)
-                    
-        except Exception as e:
-            print(f"Error in analyze_map: {e}")
-            raise e
 
     @staticmethod
     def get_model_leaderboard() -> list:
-        """
-        Returns the performance metrics for available models (PDF Page 9).
-        """
         return [
             {"model": "EfficientNet-B0", "accuracy": "93.4%", "precision": "0.91", "recall": "0.94", "f1": "0.92"},
             {"model": "ResNet50", "accuracy": "91.2%", "precision": "0.89", "recall": "0.90", "f1": "0.89"},

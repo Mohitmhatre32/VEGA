@@ -6,6 +6,59 @@
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000';
 
+//============================================================================
+
+// Matches the output of predict_patch
+export interface SinglePrediction {
+    class: string;
+    confidence: number;
+}
+
+// Matches the objects inside analysis_results["grid"]
+export interface GridPatch {
+    x: number;
+    y: number;
+    class: string;
+    confidence: number;
+}
+
+// Matches the output of get_image_analysis_data
+export interface MapAnalysisResult {
+    image_width: number;
+    image_height: number;
+    patch_size: number;
+    grid: GridPatch[];
+}
+
+/** 1. Get the Single Result (Top label and confidence) */
+export async function predictSingle(file: File): Promise<SinglePrediction> {
+    const formData = new FormData();
+    formData.append('file', file);
+    const res = await fetch(`${API_BASE}/classification/predict`, {
+        method: 'POST',
+        body: formData,
+    });
+    if (!res.ok) throw new Error('Prediction failed');
+    return res.json();
+}
+
+/** 2. Get the Full Grid Analysis (Color Map JSON) */
+export async function analyzeMap(file: File, patchSize: number = 64): Promise<MapAnalysisResult> {
+    const formData = new FormData();
+    formData.append('file', file);
+    const res = await fetch(`${API_BASE}/classification/analyze-map?patch_size=${patchSize}`, {
+        method: 'POST',
+        body: formData,
+    });
+    if (!res.ok) throw new Error('Map analysis failed');
+    return res.json();
+}
+//============================================================================
+
+
+
+
+
 // ── Types ──────────────────────────────────────────────────────────────────────
 
 /** Matches the JSON shape returned by POST /classification/predict */
@@ -166,26 +219,26 @@ export interface MapAnalysisResult {
  * Upload a full satellite image and get the complete patch-grid JSON.
  * This drives the AI terrain-colour overlay in ClassificationVisualization.
  */
-export async function analyzeMap(
-    file: File,
-    patchSize = 64,
-): Promise<MapAnalysisResult> {
-    const formData = new FormData();
-    formData.append('file', file);
+// export async function analyzeMap(
+//     file: File,
+//     patchSize = 64,
+// ): Promise<MapAnalysisResult> {
+//     const formData = new FormData();
+//     formData.append('file', file);
 
-    const res = await fetch(
-        `${API_BASE}/classification/analyze-map?patch_size=${patchSize}`,
-        { method: 'POST', body: formData },
-    );
+//     const res = await fetch(
+//         `${API_BASE}/classification/analyze-map?patch_size=${patchSize}`,
+//         { method: 'POST', body: formData },
+//     );
 
-    if (!res.ok) {
-        let detail = `Server error ${res.status}`;
-        try {
-            const json = await res.json();
-            if (json?.detail) detail = json.detail;
-        } catch { /* ignore */ }
-        throw new Error(detail);
-    }
+//     if (!res.ok) {
+//         let detail = `Server error ${res.status}`;
+//         try {
+//             const json = await res.json();
+//             if (json?.detail) detail = json.detail;
+//         } catch { /* ignore */ }
+//         throw new Error(detail);
+//     }
 
-    return res.json() as Promise<MapAnalysisResult>;
-}
+//     return res.json() as Promise<MapAnalysisResult>;
+// }
